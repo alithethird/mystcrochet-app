@@ -18,7 +18,7 @@ class StitchStore {
   List<StitchRecord> get filtered {
     var result = _all;
     if (_activeCategory != null) {
-      result = result.where((s) => s.category == _activeCategory).toList();
+      result = result.where((s) => s.category.contains(_activeCategory)).toList();
     }
     if (_searchText.isNotEmpty) {
       final q = _searchText.toLowerCase();
@@ -30,7 +30,7 @@ class StitchStore {
   }
 
   List<String> get categories {
-    return _all.map((s) => s.category).toSet().toList()..sort();
+    return _all.expand((s) => s.category).toSet().toList()..sort();
   }
 
   StitchRecord? getStitch(String name) {

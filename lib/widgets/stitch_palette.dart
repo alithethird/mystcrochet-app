@@ -33,13 +33,16 @@ class StitchPalette extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                const Text('Stitches', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const Text('Stitches',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 if (onClose != null)
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: onClose,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints:
+                        const BoxConstraints(minWidth: 28, minHeight: 28),
                   ),
               ],
             ),
@@ -51,17 +54,41 @@ class StitchPalette extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               children: [
                 ...categories.map((cat) => Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _CategoryChip(
+                        label: cat,
+                        selected: activeCategory == cat,
+                        onTap: () => ref
+                            .read(stitchStoreProvider.notifier)
+                            .setActiveCategory(cat),
+                      ),
+                    )),
+                Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: _CategoryChip(
-                    label: cat,
-                    selected: activeCategory == cat,
-                    onTap: () => ref.read(stitchStoreProvider.notifier).setActiveCategory(cat),
+                    label: 'All',
+                    selected: activeCategory == null,
+                    onTap: () => ref
+                        .read(stitchStoreProvider.notifier)
+                        .setActiveCategory(null),
                   ),
-                )),
-                _CategoryChip(
-                  label: 'All',
-                  selected: activeCategory == null,
-                  onTap: () => ref.read(stitchStoreProvider.notifier).setActiveCategory(null),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B82F6),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: const Color(0xFF3B82F6),
+                    ),
+                  ),
+                  child: IconButton(
+                    onPressed: onClose,
+                    alignment: Alignment.center,
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 28, minHeight: 28),
+                    icon: const Icon(Icons.add, color: Colors.white, size: 18),
+                  ),
                 ),
               ],
             ),
@@ -72,11 +99,13 @@ class StitchPalette extends ConsumerWidget {
               decoration: const InputDecoration(
                 hintText: 'Search...',
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 border: OutlineInputBorder(),
               ),
               style: const TextStyle(fontSize: 12),
-              onChanged: (v) => ref.read(stitchStoreProvider.notifier).setSearchText(v),
+              onChanged: (v) =>
+                  ref.read(stitchStoreProvider.notifier).setSearchText(v),
             ),
           ),
           Expanded(
@@ -85,7 +114,8 @@ class StitchPalette extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final stitch = stitches[index];
                 final isSelected = activeStitchName == stitch.name;
-                final colored = substituteColors(stitch.svgContent, '#000000', '#ffffff');
+                final colored =
+                    substituteColors(stitch.svgContent, '#000000', '#ffffff');
                 return ListTile(
                   dense: true,
                   selected: isSelected,
@@ -99,8 +129,11 @@ class StitchPalette extends ConsumerWidget {
                       fit: BoxFit.contain,
                     ),
                   ),
-                  title: Text(stitch.name, style: const TextStyle(fontSize: 12)),
-                  onTap: () => ref.read(stitchStoreProvider.notifier).setActiveStitchName(stitch.name),
+                  title:
+                      Text(stitch.name, style: const TextStyle(fontSize: 12)),
+                  onTap: () => ref
+                      .read(stitchStoreProvider.notifier)
+                      .setActiveStitchName(stitch.name),
                 );
               },
             ),
