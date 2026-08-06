@@ -6,7 +6,6 @@ import 'providers/chart_provider.dart';
 import 'providers/stitch_provider.dart';
 import 'widgets/toolbar.dart';
 import 'widgets/stitch_palette.dart';
-import 'widgets/textual_canvas.dart';
 import 'widgets/visual_chart_view.dart';
 import 'widgets/panels.dart';
 import 'dialogs/new_chart_dialog.dart';
@@ -63,15 +62,8 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
 
   @override
   Widget build(BuildContext context) {
-    final chartState = ref.watch(chartProvider);
-    final chart = chartState.chart;
-
     final tabItems = [
       {'label': 'Properties', 'widget': const PropertiesPanel()},
-      {'label': 'Align', 'widget': const AlignPanel()},
-      {'label': 'Mirror', 'widget': const MirrorPanel()},
-      {'label': 'Legends', 'widget': const LegendsPanel()},
-      {'label': 'Layers', 'widget': const LayersPanel()},
     ];
 
     return MaterialApp(
@@ -115,11 +107,9 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                       child: Stack(
                         children: [
                           Positioned.fill(
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: chart.style == GuidelinesType.visual
-                                  ? const VisualChartView()
-                                  : const TextualCanvas(),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: VisualChartView(),
                             ),
                           ),
                           Positioned(

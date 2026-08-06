@@ -24,6 +24,44 @@ class PropertiesPanel extends ConsumerWidget {
         const SizedBox(height: 8),
         Row(
           children: [
+            const Text('Rounds:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.remove, size: 16),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              padding: EdgeInsets.zero,
+              onPressed: chart.patternRounds.isNotEmpty
+                  ? () {
+                      final notifier = ref.read(chartProvider.notifier);
+                      final rounds = List<PatternRound>.from(chart.patternRounds)..removeLast();
+                      notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
+                    }
+                  : null,
+            ),
+            SizedBox(
+              width: 32,
+              child: Text(
+                '${chart.patternRounds.length}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add, size: 16),
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              padding: EdgeInsets.zero,
+              onPressed: () {
+                final notifier = ref.read(chartProvider.notifier);
+                final rounds = List<PatternRound>.from(chart.patternRounds)
+                  ..add(PatternRound(number: chart.patternRounds.length + 1, stitches: []));
+                notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
             const Text('Zoom:', style: TextStyle(fontSize: 12)),
             const SizedBox(width: 8),
             SizedBox(
@@ -112,59 +150,5 @@ class _PatternPanelState extends ConsumerState<PatternPanel> {
         ),
       ],
     );
-  }
-}
-
-class AlignPanel extends StatelessWidget {
-  const AlignPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Text('Align options', style: TextStyle(fontSize: 12));
-  }
-}
-
-class MirrorPanel extends StatelessWidget {
-  const MirrorPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Text('Mirror options', style: TextStyle(fontSize: 12));
-  }
-}
-
-class RowsPanel extends StatelessWidget {
-  const RowsPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox();
-  }
-}
-
-class ResizePanel extends StatelessWidget {
-  const ResizePanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox();
-  }
-}
-
-class LegendsPanel extends StatelessWidget {
-  const LegendsPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Text('Legend options', style: TextStyle(fontSize: 12));
-  }
-}
-
-class LayersPanel extends StatelessWidget {
-  const LayersPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Text('Layer options', style: TextStyle(fontSize: 12));
   }
 }
