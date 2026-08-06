@@ -360,7 +360,7 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     final dist = sqrt(dx * dx + dy * dy);
 
     final record = ref.read(stitchStoreProvider).getStitch(activeName);
-    final isStarter = record?.category == 'starters';
+    final isStarter = record?.category.contains('starters') ?? false;
 
     // Place / replace starter when close to the center
     if (isStarter && dist < 25) {
@@ -542,7 +542,7 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     final rounds = chart.patternRounds;
     final activeName = stitchNotifier.activeStitchName;
     final activeRecord = activeName != null ? stitchNotifier.getStitch(activeName) : null;
-    final activeIsStarter = activeRecord?.category == 'starters';
+    final activeIsStarter = activeRecord?.category.contains('starters') ?? false;
 
     final chainSize = _chainSymbolSize(stitchNotifier);
     final chainW = chainSize.$1;
