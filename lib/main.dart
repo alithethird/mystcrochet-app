@@ -10,6 +10,8 @@ import 'widgets/visual_chart_view.dart';
 import 'widgets/panels.dart';
 import 'dialogs/new_chart_dialog.dart';
 import 'dialogs/text_view_dialog.dart';
+import 'dialogs/export_dialog.dart';
+import 'services/export_service.dart';
 import 'widgets/build_version_badge.dart';
 
 void main() {
@@ -25,6 +27,7 @@ class CrochetChartsApp extends ConsumerStatefulWidget {
 }
 
 class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
+  final GlobalKey<VisualChartViewState> _chartKey = GlobalKey<VisualChartViewState>();
   bool _leftOpen = false;
   bool _rightOpen = true;
 
@@ -59,6 +62,80 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
       guidelines: chart.guidelines.copyWith(type: GuidelinesType.visual),
       patternRounds: connected,
     ));
+  }
+
+  Future<void> _handleExportPng(BuildContext context) async {
+    final chartState = ref.read(chartProvider);
+    final chart = chartState.chart;
+
+    final hasContent = chart.starterStitchName != null ||
+        chart.patternRounds.any((r) => r.stitches.isNotEmpty);
+    if (!hasContent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Grafikte dışa aktarılacak ilmek bulunmuyor.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final initialName = chart.name.isNotEmpty ? chart.name : 'crochet_chart';
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => ExportDialog(
+        initialName: initialName,
+        onExport: (options) async {
+          final chartView = _chartKey.currentState;
+          if (chartView == null) return;
+
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  ),
+                  SizedBox(width: 12),
+                  Text('PNG oluşturuluyor...'),
+                ],
+              ),
+              duration: Duration(seconds: 1),
+            ),
+          );
+
+          final bytes = await chartView.capturePng(
+            pixelRatio: options.pixelRatio,
+            includeGuidelines: options.includeGuidelines,
+            transparent: options.transparent,
+          );
+
+          if (bytes == null || bytes.isEmpty) {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text('Görüntü oluşturulamadı. Lütfen tekrar deneyin.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+
+          final success = await ExportService.savePng(bytes, options.fileName);
+          if (success) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('${options.fileName} dışa aktarıldı.'),
+                backgroundColor: const Color(0xFF16A34A),
+              ),
+            );
+          }
+        },
+      ),
+    );
   }
 
   @override
@@ -96,6 +173,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                     ),
                   ),
                 ),
+                onExportPng: () => _handleExportPng(innerContext),
               ),
               Expanded(
                 child: Row(
@@ -108,10 +186,10 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                     Expanded(
                       child: Stack(
                         children: [
-                          const Positioned.fill(
+                          Positioned.fill(
                             child: Padding(
-                              padding: EdgeInsets.all(4),
-                              child: VisualChartView(),
+                              padding: const EdgeInsets.all(4),
+                              child: VisualChartView(key: _chartKey),
                             ),
                           ),
                           Positioned(

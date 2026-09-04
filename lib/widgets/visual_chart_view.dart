@@ -1,6 +1,9 @@
 import 'dart:math';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../models/pattern.dart';
@@ -484,12 +487,17 @@ class VisualChartView extends ConsumerStatefulWidget {
   const VisualChartView({super.key, this.ringRadius = 20.0});
 
   @override
-  ConsumerState<VisualChartView> createState() => _VisualChartViewState();
+  ConsumerState<VisualChartView> createState() => VisualChartViewState();
 }
 
-class _VisualChartViewState extends ConsumerState<VisualChartView> {
+class VisualChartViewState extends ConsumerState<VisualChartView> {
   final TransformationController _transform = TransformationController();
   final GlobalKey _viewKey = GlobalKey();
+  final GlobalKey _chartRepaintKey = GlobalKey();
+  bool _isExporting = false;
+  bool _exportIncludeGuidelines = true;
+  bool _exportTransparent = false;
+
   int? _middleDragPointer;
   Offset? _middleDragLast;
   int? _dragRoundIdx;
@@ -506,6 +514,39 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
   int? _hoverStitchIdx;
   int? _selectedRoundIdx;
   int? _selectedStitchIdx;
+
+  Future<Uint8List?> capturePng({
+    double pixelRatio = 2.0,
+    bool includeGuidelines = true,
+    bool transparent = false,
+  }) async {
+    setState(() {
+      _isExporting = true;
+      _exportIncludeGuidelines = includeGuidelines;
+      _exportTransparent = transparent;
+    });
+
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      await Future.delayed(const Duration(milliseconds: 30));
+
+      final boundary = _chartRepaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (e) {
+      debugPrint('PNG export capture error: $e');
+      return null;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -1248,44 +1289,59 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             panEnabled: editState.mode == EditMode.pan,
             constrained: false,
             boundaryMargin: const EdgeInsets.all(double.infinity),
-            child: SizedBox(
-              width: svgSize,
-              height: svgSize,
-              child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                CustomPaint(
-                  size: Size(svgSize, svgSize),
-                  painter: _GuidePainter(
-                    rounds: rounds,
-                    half: half,
-                    ringRadius: effectiveRingRadius,
-                    roundStarts: roundStarts,
-                    drawRing: false,
-                    sides: sides,
-                    cornerRatio: cornerRatio,
-                  ),
+            child: RepaintBoundary(
+              key: _chartRepaintKey,
+              child: Container(
+                color: (_isExporting && _exportTransparent) ? Colors.transparent : Colors.white,
+                width: svgSize,
+                height: svgSize,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    if (!_isExporting || _exportIncludeGuidelines)
+                      CustomPaint(
+                        size: Size(svgSize, svgSize),
+                        painter: _GuidePainter(
+                          rounds: rounds,
+                          half: half,
+                          ringRadius: effectiveRingRadius,
+                          roundStarts: roundStarts,
+                          drawRing: false,
+                          sides: sides,
+                          cornerRatio: cornerRatio,
+                        ),
+                      ),
+                    starterWidget ?? const SizedBox(),
+                    if (positioned != null)
+                      for (int ri = 0; ri < positioned.length; ri++)
+                        ..._buildRound(
+                          positioned[ri],
+                          ri,
+                          half,
+                          stitchNotifier,
+                          effectiveRingRadius,
+                          roundStarts,
+                          hoverRoundIdx: _isExporting ? null : _hoverRoundIdx,
+                          hoverStitchIdx: _isExporting ? null : _hoverStitchIdx,
+                          selectedRoundIdx: _isExporting ? null : _selectedRoundIdx,
+                          selectedStitchIdx: _isExporting ? null : _selectedStitchIdx,
+                        ),
+
+                    // Hint text when empty (omitted during export)
+                    if (!_isExporting && chart.starterStitchName == null)
+                      if (!activeIsStarter)
+                        const Positioned(
+                          left: 0, right: 0, top: 0, bottom: 0,
+                          child: Center(child: Text('Select a starter stitch from the palette\nto begin your chart', style: hintStyle, textAlign: TextAlign.center)),
+                        )
+                      else
+                        const Positioned(
+                          left: 0, right: 0, top: 0, bottom: 0,
+                          child: Center(child: Text('Tap the center to place the starter', style: hintStyle, textAlign: TextAlign.center)),
+                        ),
+                  ],
                 ),
-                starterWidget ?? const SizedBox(),
-                if (positioned != null)
-                  for (int ri = 0; ri < positioned.length; ri++)
-                    ..._buildRound(positioned[ri], ri, half, stitchNotifier, effectiveRingRadius, roundStarts, hoverRoundIdx: _hoverRoundIdx, hoverStitchIdx: _hoverStitchIdx, selectedRoundIdx: _selectedRoundIdx, selectedStitchIdx: _selectedStitchIdx),
-
-                // Hint text when empty
-                if (chart.starterStitchName == null)
-                  if (!activeIsStarter)
-                    const Positioned(
-                      left: 0, right: 0, top: 0, bottom: 0,
-                      child: Center(child: Text('Select a starter stitch from the palette\nto begin your chart', style: hintStyle, textAlign: TextAlign.center)),
-                    )
-                  else
-                    const Positioned(
-                      left: 0, right: 0, top: 0, bottom: 0,
-                      child: Center(child: Text('Tap the center to place the starter', style: hintStyle, textAlign: TextAlign.center)),
-                    ),
-
-              ],
-            ),
+              ),
             ),
             ),
           ),

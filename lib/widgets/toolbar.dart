@@ -8,6 +8,7 @@ class AppToolbar extends ConsumerWidget {
   final VoidCallback onOpen;
   final VoidCallback onSave;
   final VoidCallback onTextView;
+  final VoidCallback? onExportPng;
 
   const AppToolbar({
     super.key,
@@ -15,6 +16,7 @@ class AppToolbar extends ConsumerWidget {
     required this.onOpen,
     required this.onSave,
     required this.onTextView,
+    this.onExportPng,
   });
 
   @override
@@ -67,57 +69,92 @@ class AppToolbar extends ConsumerWidget {
       ),
     ];
 
+    final actions = [
+      IconButton(
+        icon: const Icon(Icons.undo, size: 20),
+        tooltip: 'Undo',
+        onPressed: chartState.canUndo ? () => ref.read(chartProvider.notifier).undo() : null,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      ),
+      IconButton(
+        icon: const Icon(Icons.redo, size: 20),
+        tooltip: 'Redo',
+        onPressed: chartState.canRedo ? () => ref.read(chartProvider.notifier).redo() : null,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      ),
+      IconButton(
+        icon: const Icon(Icons.add, size: 20),
+        tooltip: 'New',
+        onPressed: onNew,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      ),
+      IconButton(
+        icon: const Icon(Icons.folder_open, size: 20),
+        tooltip: 'Open',
+        onPressed: onOpen,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      ),
+      IconButton(
+        icon: const Icon(Icons.save, size: 20),
+        tooltip: 'Save',
+        onPressed: onSave,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      ),
+      IconButton(
+        icon: const Icon(Icons.description, size: 20),
+        tooltip: 'Text View',
+        onPressed: onTextView,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      ),
+      IconButton(
+        key: const ValueKey('toolbar_export_png'),
+        icon: const Icon(Icons.image_outlined, size: 20),
+        tooltip: 'Export as PNG',
+        onPressed: onExportPng,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      ),
+    ];
+
+    final chartNameText = Text(
+      chartState.chart.name.isNotEmpty ? chartState.chart.name : 'Untitled',
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+    );
+
     return Container(
       height: 48,
       color: Colors.white,
-      child: Row(
-        children: [
-          const SizedBox(width: 8),
-          ...tools,
-          const Spacer(),
-          Text(
-            chartState.chart.name.isNotEmpty ? chartState.chart.name : 'Untitled',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.undo, size: 20),
-            tooltip: 'Undo',
-            onPressed: chartState.canUndo ? () => ref.read(chartProvider.notifier).undo() : null,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          IconButton(
-            icon: const Icon(Icons.redo, size: 20),
-            tooltip: 'Redo',
-            onPressed: chartState.canRedo ? () => ref.read(chartProvider.notifier).redo() : null,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          IconButton(
-            icon: const Icon(Icons.add, size: 20),
-            tooltip: 'New',
-            onPressed: onNew,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          IconButton(
-            icon: const Icon(Icons.folder_open, size: 20),
-            tooltip: 'Open',
-            onPressed: onOpen,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          IconButton(
-            icon: const Icon(Icons.save, size: 20),
-            tooltip: 'Save',
-            onPressed: onSave,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          IconButton(
-            icon: const Icon(Icons.description, size: 20),
-            tooltip: 'Text View',
-            onPressed: onTextView,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          const SizedBox(width: 8),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 950;
+          if (isCompact) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  ...tools,
+                  const SizedBox(width: 12),
+                  chartNameText,
+                  const SizedBox(width: 12),
+                  ...actions,
+                  const SizedBox(width: 8),
+                ],
+              ),
+            );
+          }
+
+          return Row(
+            children: [
+              const SizedBox(width: 8),
+              ...tools,
+              const Spacer(),
+              chartNameText,
+              const Spacer(),
+              ...actions,
+              const SizedBox(width: 8),
+            ],
+          );
+        },
       ),
     );
   }
