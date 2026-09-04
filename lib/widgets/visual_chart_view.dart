@@ -383,7 +383,7 @@ result.add(pos);
      prevAngles = curAngles;
      prevRadius = radius;
    }
-   return result;
+    return result;
 }
 
 List<List<PosStitch>> layoutChart(
@@ -497,6 +497,22 @@ class VisualChartViewState extends ConsumerState<VisualChartView> {
   bool _isExporting = false;
   bool _exportIncludeGuidelines = true;
   bool _exportTransparent = false;
+  // Mapping from visual round index to chart round index
+  final Map<int, int> _visualToChartRound = {};
+
+  /// Rebuild [_visualToChartRound] so drag helpers map visual indices to chart
+  /// round indices correctly, even after a round-radius change.
+  void _refreshVisualToChartMap(List<List<_PosStitch>> positioned, List<PatternRound> rounds) {
+    _visualToChartRound.clear();
+    int visualRi = 0;
+    for (int i = 0; i < rounds.length; i++) {
+      final real = rounds[i].stitches.where((s) => s.kind != 'magicRing').toList();
+      final magicOnly = real.isEmpty && rounds[i].stitches.isNotEmpty;
+      if (magicOnly) continue;
+      _visualToChartRound[visualRi] = i;
+      visualRi++;
+    }
+  }
 
   int? _middleDragPointer;
   Offset? _middleDragLast;
@@ -745,44 +761,36 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     final rounds = List<PatternRound>.from(chart.patternRounds);
-    int chartRi = -1;
-    for (int i = 0; i < rounds.length; i++) {
-      final real = rounds[i].stitches.where((s) => s.kind != 'magicRing').toList();
-      // Match _layout: skip only magic-only rounds; reserve slot for empty ones.
-      final magicOnly = real.isEmpty && rounds[i].stitches.isNotEmpty;
-      if (magicOnly) continue;
-      chartRi++;
-      if (real.isEmpty) continue; // empty round has no stitches to offset
-      if (chartRi != positionedRi) continue;
-      int expCount = 0;
-      for (int j = 0; j < real.length; j++) {
-        final s = real[j];
-        final c = s.kind == 'stitch' ? (s.count ?? 1) : 1;
-        if (expCount + c > expandedSi) {
-          final PatternStitch updated;
-          if (pinned) {
-            updated = polygonMode
-                ? s.copyWith(pinnedPerimeter: value, perimeterOffset: null)
-                : s.copyWith(pinnedAngle: value, angleOffset: null);
-          } else {
-            updated = polygonMode
-                ? s.copyWith(perimeterOffset: value, pinnedPerimeter: null)
-                : s.copyWith(angleOffset: value, pinnedAngle: null);
-          }
-          debugPrint('SETSTITCHOFFSET ri=$positionedRi si=$expandedSi pinned=$pinned mode=$polygonMode kind=${s.kind} value=${value.toStringAsFixed(2)}');
-          final sts = List<PatternStitch>.from(rounds[i].stitches);
-          final rawIdx = sts.indexOf(s);
-          if (rawIdx != -1) {
-            sts[rawIdx] = updated;
-          }
-          rounds[i] = rounds[i].copyWith(
-            stitches: sts,
-          );
-          notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)), recordUndo: recordUndo);
-          return;
+    // Use precomputed visual-to-chart round mapping
+    final int? chartRi = _visualToChartRound[positionedRi];
+    if (chartRi == null) return; // no matching round
+    final real = rounds[chartRi].stitches.where((s) => s.kind != 'magicRing').toList();
+    int expCount = 0;
+    for (int j = 0; j < real.length; j++) {
+      final s = real[j];
+      final c = s.kind == "stitch" ? (s.count ?? 1) : 1;
+      if (expCount + c > expandedSi) {
+        final PatternStitch updated;
+        if (pinned) {
+          updated = polygonMode
+              ? s.copyWith(pinnedPerimeter: value, perimeterOffset: null)
+              : s.copyWith(pinnedAngle: value, angleOffset: null);
+        } else {
+          updated = polygonMode
+              ? s.copyWith(perimeterOffset: value, pinnedPerimeter: null)
+              : s.copyWith(angleOffset: value, pinnedAngle: null);
         }
-        expCount += c;
+        debugPrint('SETSTITCHOFFSET ri=$positionedRi si=$expandedSi pinned=$pinned mode=$polygonMode kind=${s.kind} value=${value.toStringAsFixed(2)}');
+        final sts = List<PatternStitch>.from(rounds[chartRi].stitches);
+        final rawIdx = sts.indexOf(s);
+        if (rawIdx != -1) {
+          sts[rawIdx] = updated;
+        }
+        rounds[chartRi] = rounds[chartRi].copyWith(stitches: sts);
+        notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)), recordUndo: recordUndo);
+        return;
       }
+      expCount += c;
     }
   }
 
@@ -790,32 +798,26 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     final rounds = List<PatternRound>.from(chart.patternRounds);
-    int chartRi = -1;
-    for (int i = 0; i < rounds.length; i++) {
-      final real = rounds[i].stitches.where((s) => s.kind != 'magicRing').toList();
-      final magicOnly = real.isEmpty && rounds[i].stitches.isNotEmpty;
-      if (magicOnly) continue;
-      chartRi++;
-      if (real.isEmpty) continue;
-      if (chartRi != positionedRi) continue;
-      int expCount = 0;
-      for (int j = 0; j < real.length; j++) {
-        final s = real[j];
-        final c = s.kind == 'stitch' ? (s.count ?? 1) : 1;
-        if (expCount + c > expandedSi) {
-          final sts = List<PatternStitch>.from(rounds[i].stitches);
-          final rawIdx = sts.indexOf(s);
-          if (rawIdx != -1) {
-            sts[rawIdx] = s.copyWith(connectsTo: anchor);
-          }
-          rounds[i] = rounds[i].copyWith(
-            stitches: sts,
-          );
-          notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)), recordUndo: recordUndo);
-          return;
+    final int? chartRi = _visualToChartRound[positionedRi];
+    if (chartRi == null) return;
+    final real = rounds[chartRi].stitches.where((s) => s.kind != 'magicRing').toList();
+    int expCount = 0;
+    for (int j = 0; j < real.length; j++) {
+      final s = real[j];
+      final c = s.kind == 'stitch' ? (s.count ?? 1) : 1;
+      if (expCount + c > expandedSi) {
+        final sts = List<PatternStitch>.from(rounds[chartRi].stitches);
+        final rawIdx = sts.indexOf(s);
+        if (rawIdx != -1) {
+          sts[rawIdx] = s.copyWith(connectsTo: anchor);
         }
-        expCount += c;
+        rounds[chartRi] = rounds[chartRi].copyWith(
+          stitches: sts,
+        );
+        notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)), recordUndo: recordUndo);
+        return;
       }
+      expCount += c;
     }
   }
 
@@ -1026,8 +1028,13 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final sides = chart.guidelines.visualShapeSides;
     final cornerRatio = chart.guidelines.visualCornerRatio;
     final positioned = rounds.isNotEmpty
-        ? _layout(rounds, effectiveRingRadius, chainW, chainH, chainFan, stitchNotifier, sides: sides, cornerRatio: cornerRatio)
+        ? _layout(rounds, effectiveRingRadius, chainW, chainH, chainFan, stitchNotifier,
+            sides: sides, cornerRatio: cornerRatio)
         : null;
+    // Refresh visual-to-chart mapping after layout
+    if (positioned != null) {
+      _refreshVisualToChartMap(positioned, rounds);
+    }
     final roundStarts = <double>[effectiveRingRadius];
     bool firstRound = true;
     for (final round in rounds) {
@@ -1354,9 +1361,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
               top: 6,
               child: Builder(
                 builder: (context) {
-                  final activeIdx = (_selectedRoundIdx != null && _selectedRoundIdx! < rounds.length)
-                      ? _selectedRoundIdx!
-                      : (rounds.isNotEmpty ? rounds.length - 1 : 0);
+                  final mappedSelected = _selectedRoundIdx != null ? _visualToChartRound[_selectedRoundIdx!] : null;
+                  final activeIdx = (mappedSelected != null && mappedSelected < rounds.length)
+                      ? mappedSelected
+                      : (_selectedRoundIdx != null && _selectedRoundIdx! < rounds.length
+                          ? _selectedRoundIdx!
+                          : (rounds.isNotEmpty ? rounds.length - 1 : 0));
                   final activeRound = (rounds.isNotEmpty && activeIdx < rounds.length)
                       ? rounds[activeIdx]
                       : null;
