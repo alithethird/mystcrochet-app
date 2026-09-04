@@ -14,7 +14,7 @@ class TextViewDialog extends ConsumerWidget {
     final json = chart.toJson();
 
     return AlertDialog(
-      title: const Text('Chart Data'),
+      title: const Text('Grafik Verisi (JSON)'),
       content: SizedBox(
         width: 400,
         height: 400,
@@ -26,7 +26,7 @@ class TextViewDialog extends ConsumerWidget {
         ),
       ),
       actions: [
-        FilledButton(onPressed: onClose, child: const Text('Close')),
+        FilledButton(onPressed: onClose, child: const Text('Kapat')),
       ],
     );
   }

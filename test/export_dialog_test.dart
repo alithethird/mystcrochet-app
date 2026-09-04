@@ -24,19 +24,19 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Export as PNG'), findsOneWidget);
+      expect(find.text('PNG Olarak Dışa Aktar'), findsOneWidget);
       final textField = tester.widget<TextField>(find.byType(TextField));
       expect(textField.controller?.text, equals('My_Awesome_Mandala.png'));
 
       // Verify default resolution (2x) is present in tree
-      expect(find.text('2x - High Quality (Print/HD)'), findsOneWidget);
+      expect(find.text('2x - Yüksek Kalite (Baskı/HD)'), findsOneWidget);
 
       // Verify checkboxes exist
-      expect(find.text('Include Guide Lines'), findsOneWidget);
-      expect(find.text('Transparent Background'), findsOneWidget);
+      expect(find.text('Kılavuz Çizgilerini Dahil Et'), findsOneWidget);
+      expect(find.text('Saydam Arka Plan'), findsOneWidget);
 
       // Tap Export PNG button
-      final exportButton = find.widgetWithText(FilledButton, 'Export PNG');
+      final exportButton = find.widgetWithText(FilledButton, 'PNG Dışa Aktar');
       expect(exportButton, findsOneWidget);
       await tester.tap(exportButton);
       await tester.pumpAndSettle();
@@ -70,7 +70,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'summer_coaster');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Export PNG'));
+      await tester.tap(find.widgetWithText(FilledButton, 'PNG Dışa Aktar'));
       await tester.pumpAndSettle();
 
       expect(capturedOptions, isNotNull);

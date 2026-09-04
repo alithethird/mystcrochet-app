@@ -64,7 +64,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
             ),
             child: Row(
               children: [
-                const Text('Stitches',
+                const Text('İlmekler',
                     style:
                         TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const Spacer(),
@@ -97,7 +97,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: _CategoryChip(
-                    label: 'All',
+                    label: 'Tümü',
                     selected: activeCategory == null,
                     onTap: () => ref
                         .read(stitchStoreProvider.notifier)
@@ -132,7 +132,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                   child: TextField(
                     controller: _searchController,
                     decoration: const InputDecoration(
-                      hintText: 'Search...',
+                      hintText: 'İlmek ara...',
                       isDense: true,
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -149,7 +149,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                 IconButton(
                   key: const ValueKey('clear_search_button'),
                   icon: const Icon(Icons.clear, size: 18),
-                  tooltip: 'Clear search',
+                  tooltip: 'Aramayı temizle',
                   constraints:
                       const BoxConstraints(minWidth: 32, minHeight: 32),
                   padding: EdgeInsets.zero,

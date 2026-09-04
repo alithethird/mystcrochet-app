@@ -74,7 +74,7 @@ class _ExportDialogState extends State<ExportDialog> {
         children: [
           Icon(Icons.image, size: 22, color: Color(0xFF3B82F6)),
           SizedBox(width: 8),
-          Text('Export as PNG', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          Text('PNG Olarak Dışa Aktar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
         ],
       ),
       content: SizedBox(
@@ -86,7 +86,7 @@ class _ExportDialogState extends State<ExportDialog> {
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'File Name',
+                labelText: 'Dosya Adı',
                 hintText: 'crochet_chart.png',
                 border: OutlineInputBorder(),
                 isDense: true,
@@ -99,15 +99,15 @@ class _ExportDialogState extends State<ExportDialog> {
               initialValue: _pixelRatio,
               isExpanded: true,
               decoration: const InputDecoration(
-                labelText: 'Resolution Quality',
+                labelText: 'Çözünürlük Kalitesi',
                 border: OutlineInputBorder(),
                 isDense: true,
                 prefixIcon: Icon(Icons.high_quality, size: 20),
               ),
               items: const [
-                DropdownMenuItem(value: 1.0, child: Text('1x - Standard (Screen)')),
-                DropdownMenuItem(value: 2.0, child: Text('2x - High Quality (Print/HD)')),
-                DropdownMenuItem(value: 3.0, child: Text('3x - Ultra Quality (4K/Vector crisp)')),
+                DropdownMenuItem(value: 1.0, child: Text('1x - Standart Kalite (Ekran)')),
+                DropdownMenuItem(value: 2.0, child: Text('2x - Yüksek Kalite (Baskı/HD)')),
+                DropdownMenuItem(value: 3.0, child: Text('3x - Ultra Kalite (4K/Net Vektör)')),
               ],
               onChanged: (val) {
                 if (val != null) setState(() => _pixelRatio = val);
@@ -117,8 +117,8 @@ class _ExportDialogState extends State<ExportDialog> {
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               dense: true,
-              title: const Text('Include Guide Lines'),
-              subtitle: const Text('Show round and polygon layout guides', style: TextStyle(fontSize: 11)),
+              title: const Text('Kılavuz Çizgilerini Dahil Et'),
+              subtitle: const Text('Tur ve çokgen yerleşim kılavuzlarını göster', style: TextStyle(fontSize: 11)),
               value: _includeGuidelines,
               onChanged: (val) => setState(() => _includeGuidelines = val ?? true),
               controlAffinity: ListTileControlAffinity.leading,
@@ -126,8 +126,8 @@ class _ExportDialogState extends State<ExportDialog> {
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               dense: true,
-              title: const Text('Transparent Background'),
-              subtitle: const Text('Export with transparent background instead of white', style: TextStyle(fontSize: 11)),
+              title: const Text('Saydam Arka Plan'),
+              subtitle: const Text('Beyaz yerine saydam arka plan ile dışa aktar', style: TextStyle(fontSize: 11)),
               value: _transparent,
               onChanged: (val) => setState(() => _transparent = val ?? false),
               controlAffinity: ListTileControlAffinity.leading,
@@ -138,12 +138,12 @@ class _ExportDialogState extends State<ExportDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('İptal'),
         ),
         FilledButton.icon(
           onPressed: _submit,
           icon: const Icon(Icons.download, size: 18),
-          label: const Text('Export PNG'),
+          label: const Text('PNG Dışa Aktar'),
         ),
       ],
     );

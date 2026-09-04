@@ -27,43 +27,25 @@ class AppToolbar extends ConsumerWidget {
     final tools = [
       _ToolButton(
         icon: Icons.auto_fix_high,
-        label: 'Stitch',
+        label: 'İlmek',
         selected: editState.mode == EditMode.stitch,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.stitch),
       ),
       _ToolButton(
         icon: Icons.open_with,
-        label: 'Move',
+        label: 'Taşı',
         selected: editState.mode == EditMode.move,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.move),
       ),
       _ToolButton(
-        icon: Icons.format_paint,
-        label: 'Color',
-        selected: editState.mode == EditMode.color,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.color),
-      ),
-      _ToolButton(
-        icon: Icons.rotate_right,
-        label: 'Rotate',
-        selected: editState.mode == EditMode.rotation,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.rotation),
-      ),
-      _ToolButton(
-        icon: Icons.zoom_out_map,
-        label: 'Scale',
-        selected: editState.mode == EditMode.scale,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.scale),
-      ),
-      _ToolButton(
         icon: Icons.text_fields,
-        label: 'Text',
+        label: 'Metin',
         selected: editState.mode == EditMode.indicator,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.indicator),
       ),
       _ToolButton(
         icon: Icons.pan_tool,
-        label: 'Pan',
+        label: 'Kaydır',
         selected: editState.mode == EditMode.pan,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.pan),
       ),
@@ -72,51 +54,51 @@ class AppToolbar extends ConsumerWidget {
     final actions = [
       IconButton(
         icon: const Icon(Icons.undo, size: 20),
-        tooltip: 'Undo',
+        tooltip: 'Geri Al',
         onPressed: chartState.canUndo ? () => ref.read(chartProvider.notifier).undo() : null,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
         icon: const Icon(Icons.redo, size: 20),
-        tooltip: 'Redo',
+        tooltip: 'Yinele',
         onPressed: chartState.canRedo ? () => ref.read(chartProvider.notifier).redo() : null,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
         icon: const Icon(Icons.add, size: 20),
-        tooltip: 'New',
+        tooltip: 'Yeni Grafik',
         onPressed: onNew,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
         icon: const Icon(Icons.folder_open, size: 20),
-        tooltip: 'Open',
+        tooltip: 'Grafik Aç',
         onPressed: onOpen,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
         icon: const Icon(Icons.save, size: 20),
-        tooltip: 'Save',
+        tooltip: 'Grafiği Kaydet',
         onPressed: onSave,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
         icon: const Icon(Icons.description, size: 20),
-        tooltip: 'Text View',
+        tooltip: 'Veri Görünümü',
         onPressed: onTextView,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
         key: const ValueKey('toolbar_export_png'),
         icon: const Icon(Icons.image_outlined, size: 20),
-        tooltip: 'Export as PNG',
+        tooltip: 'PNG Olarak Dışa Aktar',
         onPressed: onExportPng,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
     ];
 
     final chartNameText = Text(
-      chartState.chart.name.isNotEmpty ? chartState.chart.name : 'Untitled',
+      chartState.chart.name.isNotEmpty ? chartState.chart.name : 'İsimsiz',
       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
     );
 

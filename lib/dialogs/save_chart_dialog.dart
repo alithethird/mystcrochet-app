@@ -77,7 +77,7 @@ class _SaveChartDialogState extends State<SaveChartDialog> {
         children: [
           Icon(Icons.save_outlined, size: 22),
           SizedBox(width: 8),
-          Text('Save Chart', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text('Grafiği Kaydet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ],
       ),
       content: ConstrainedBox(
@@ -87,7 +87,7 @@ class _SaveChartDialogState extends State<SaveChartDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'File Name',
+              'Dosya Adı',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 6),
@@ -113,11 +113,11 @@ class _SaveChartDialogState extends State<SaveChartDialog> {
               segments: const [
                 ButtonSegment(
                   value: '.crochet',
-                  label: Text('.crochet (Pattern)'),
+                  label: Text('.crochet (Grafik Deseni)'),
                 ),
                 ButtonSegment(
                   value: '.json',
-                  label: Text('.json (JSON)'),
+                  label: Text('.json (JSON Verisi)'),
                 ),
               ],
               selected: {_extension},
@@ -130,7 +130,7 @@ class _SaveChartDialogState extends State<SaveChartDialog> {
               value: _updateChartName,
               onChanged: (val) => setState(() => _updateChartName = val ?? true),
               title: const Text(
-                'Update chart title in workspace',
+                'Çalışma alanındaki grafik başlığını güncelle',
                 style: TextStyle(fontSize: 13),
               ),
               dense: true,
@@ -143,12 +143,12 @@ class _SaveChartDialogState extends State<SaveChartDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('İptal'),
         ),
         FilledButton.icon(
           onPressed: _submit,
           icon: const Icon(Icons.save, size: 18),
-          label: const Text('Save'),
+          label: const Text('Kaydet'),
         ),
       ],
     );

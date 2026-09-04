@@ -16,11 +16,11 @@ void main() {
         ),
       );
 
-      expect(find.text('Save Chart'), findsOneWidget);
+      expect(find.text('Grafiği Kaydet'), findsOneWidget);
       expect(find.text('My Mandala'), findsOneWidget);
-      expect(find.text('.crochet (Pattern)'), findsOneWidget);
-      expect(find.text('.json (JSON)'), findsOneWidget);
-      expect(find.text('Update chart title in workspace'), findsOneWidget);
+      expect(find.text('.crochet (Grafik Deseni)'), findsOneWidget);
+      expect(find.text('.json (JSON Verisi)'), findsOneWidget);
+      expect(find.text('Çalışma alanındaki grafik başlığını güncelle'), findsOneWidget);
     });
 
     testWidgets('Defaults Untitled to crochet_pattern', (tester) async {
@@ -57,7 +57,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Kaydet'));
       await tester.pumpAndSettle();
 
       expect(savedFileName, 'Sunburst.crochet');
@@ -82,10 +82,10 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('.json (JSON)'));
+      await tester.tap(find.text('.json (JSON Verisi)'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Kaydet'));
       await tester.pumpAndSettle();
 
       expect(savedFileName, 'Flower.json');
@@ -114,7 +114,7 @@ void main() {
       await tester.tap(find.byType(CheckboxListTile));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Kaydet'));
       await tester.pumpAndSettle();
 
       expect(savedFileName, 'Daisy.crochet');

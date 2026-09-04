@@ -227,8 +227,8 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
   @override
   Widget build(BuildContext context) {
     final tabItems = [
-      {'label': 'Properties', 'widget': const PropertiesPanel()},
-      {'label': 'Shape', 'widget': const ShapePanel()},
+      {'label': 'Özellikler', 'widget': const PropertiesPanel()},
+      {'label': 'Şekil', 'widget': const ShapePanel()},
     ];
 
     return MaterialApp(
@@ -408,7 +408,7 @@ class _BottomPanelState extends State<_BottomPanel> with SingleTickerProviderSta
                           indicatorColor: const Color(0xFF3B82F6),
                           tabs: [
                             ...widget.tabs.map((t) => Tab(text: t['label'] as String)),
-                            const Tab(text: 'Pattern'),
+                            const Tab(text: 'Desen Metni'),
                           ],
                         ),
                       ),

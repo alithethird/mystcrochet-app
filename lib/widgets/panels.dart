@@ -14,17 +14,17 @@ class PropertiesPanel extends ConsumerWidget {
     final editState = ref.watch(editModeProvider);
     final chart = chartState.chart;
 
-    final styleLabel = chart.style == GuidelinesType.visual ? 'Visual' : 'Textual';
+    final styleLabel = chart.style == GuidelinesType.visual ? 'Görsel' : 'Metinsel';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _propRow('Name', chart.name),
-        _propRow('Style', styleLabel),
-        _propRow('Rounds', '${chart.patternRounds.length}'),
+        _propRow('Ad', chart.name.isNotEmpty ? chart.name : 'İsimsiz'),
+        _propRow('Stil', styleLabel),
+        _propRow('Tur Sayısı', '${chart.patternRounds.length}'),
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text('Rounds:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            const Text('Turlar:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
             const Spacer(),
             IconButton(
               icon: const Icon(Icons.remove, size: 16),
@@ -62,7 +62,7 @@ class PropertiesPanel extends ConsumerWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text('Zoom:', style: TextStyle(fontSize: 12)),
+            const Text('Yakınlaştırma:', style: TextStyle(fontSize: 12)),
             const SizedBox(width: 8),
             SizedBox(
               width: 80,
@@ -77,11 +77,11 @@ class PropertiesPanel extends ConsumerWidget {
           ],
         ),
         const Divider(height: 20),
-        const Text('Round Expansion / Spacing:',
+        const Text('Tur Genişletme / Aralık:',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         if (chart.patternRounds.isEmpty)
-          const Text('No rounds in chart',
+          const Text('Grafikte henüz tur bulunmuyor',
               style: TextStyle(fontSize: 11, color: Colors.grey))
         else
           ...chart.patternRounds.asMap().entries.map((entry) {
@@ -94,7 +94,7 @@ class PropertiesPanel extends ConsumerWidget {
                 children: [
                   SizedBox(
                     width: 65,
-                    child: Text('Round ${round.number}:',
+                    child: Text('Tur ${round.number}:',
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
                   ),
                   IconButton(
@@ -102,7 +102,7 @@ class PropertiesPanel extends ConsumerWidget {
                     icon: const Icon(Icons.remove, size: 14),
                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                     padding: EdgeInsets.zero,
-                    tooltip: 'Contract round',
+                    tooltip: 'Turu Daralt',
                     onPressed: () {
                       final notifier = ref.read(chartProvider.notifier);
                       final rounds = List<PatternRound>.from(chart.patternRounds);
@@ -127,7 +127,7 @@ class PropertiesPanel extends ConsumerWidget {
                     icon: const Icon(Icons.add, size: 14),
                     constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                     padding: EdgeInsets.zero,
-                    tooltip: 'Expand round',
+                    tooltip: 'Turu Genişlet',
                     onPressed: () {
                       final notifier = ref.read(chartProvider.notifier);
                       final rounds = List<PatternRound>.from(chart.patternRounds);
@@ -145,7 +145,7 @@ class PropertiesPanel extends ConsumerWidget {
                       icon: const Icon(Icons.refresh, size: 14),
                       constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                       padding: EdgeInsets.zero,
-                      tooltip: 'Reset to default',
+                      tooltip: 'Varsayılana Sıfırla',
                       onPressed: () {
                         final notifier = ref.read(chartProvider.notifier);
                         final rounds = List<PatternRound>.from(chart.patternRounds);
@@ -197,14 +197,14 @@ class _PatternPanelState extends ConsumerState<PatternPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Pattern Text', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        const Text('Desen Metni', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         TextField(
           controller: _controller,
           maxLines: 8,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
-            hintText: 'Paste your pattern here...',
+            hintText: 'Desen metninizi buraya yapıştırın...',
             isDense: true,
           ),
           style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
@@ -217,17 +217,17 @@ class _PatternPanelState extends ConsumerState<PatternPanel> {
             final parsed = parsePattern(text);
             if (parsed.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No rounds found in pattern text')),
+                const SnackBar(content: Text('Desen metninde tur bulunamadı')),
               );
               return;
             }
             widget.onParse?.call(parsed.map((r) => r.toJson()).toList());
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Parsed ${parsed.length} round(s)')),
+              SnackBar(content: Text('${parsed.length} tur başarıyla çözümlendi')),
             );
           },
           icon: const Icon(Icons.auto_awesome, size: 16),
-          label: const Text('Parse Pattern', style: TextStyle(fontSize: 12)),
+          label: const Text('Deseni Çözümle', style: TextStyle(fontSize: 12)),
         ),
       ],
     );
@@ -340,27 +340,27 @@ class _ShapePanelState extends ConsumerState<ShapePanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Round Shape',
+        const Text('Tur Şekli',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         DropdownButtonFormField<int>(
           initialValue: sides,
           decoration: const InputDecoration(
             isDense: true,
-            labelText: 'Shape',
+            labelText: 'Şekil',
             border: OutlineInputBorder(),
           ),
           items: [
-            const DropdownMenuItem(value: 0, child: Text('Circle')),
+            const DropdownMenuItem(value: 0, child: Text('Daire')),
             for (var n = 3; n <= 12; n++)
-              DropdownMenuItem(value: n, child: Text('$n sides')),
+              DropdownMenuItem(value: n, child: Text('$n kenarlı')),
           ],
           onChanged: (v) => _switchShape(v ?? 0),
         ),
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text('Corner radius:',
+            const Text('Köşe yuvarlama:',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
             const SizedBox(width: 8),
             SizedBox(
@@ -409,8 +409,8 @@ class _ShapePanelState extends ConsumerState<ShapePanel> {
         const SizedBox(height: 4),
         Text(
           sides == 0
-              ? 'Circles have no corner rounding. Pick 3-12 sides for a polygonal chart.'
-              : 'Rounds render as a $sides-sided polygon with ${ratio == 0 ? "sharp" : "rounded"} corners.',
+              ? 'Daire şeklinde köşe yuvarlama bulunmaz. Çokgen grafik için 3-12 kenar seçin.'
+              : 'Turlar ${ratio == 0 ? "keskin" : "yuvarlatılmış"} köşeli $sides kenarlı bir çokgen olarak çizilir.',
           style: const TextStyle(fontSize: 10, color: Color(0xFF999999)),
         ),
       ],

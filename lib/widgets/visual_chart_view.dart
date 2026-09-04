@@ -1332,12 +1332,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                       if (!activeIsStarter)
                         const Positioned(
                           left: 0, right: 0, top: 0, bottom: 0,
-                          child: Center(child: Text('Select a starter stitch from the palette\nto begin your chart', style: hintStyle, textAlign: TextAlign.center)),
+                          child: Center(child: Text('Grafiğinize başlamak için paletten bir başlangıç ilmeği seçin', style: hintStyle, textAlign: TextAlign.center)),
                         )
                       else
                         const Positioned(
                           left: 0, right: 0, top: 0, bottom: 0,
-                          child: Center(child: Text('Tap the center to place the starter', style: hintStyle, textAlign: TextAlign.center)),
+                          child: Center(child: Text('Başlangıç ilmeğini yerleştirmek için merkeze dokunun', style: hintStyle, textAlign: TextAlign.center)),
                         ),
                   ],
                 ),
@@ -1372,7 +1372,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'R${activeRound != null ? activeRound.number : (rounds.isEmpty ? 1 : rounds.length)} (${activeRound != null ? activeRound.stitches.length : 0} sts)',
+                          'Tur ${activeRound != null ? activeRound.number : (rounds.isEmpty ? 1 : rounds.length)} (${activeRound != null ? activeRound.stitches.length : 0} ilmek)',
                           style: const TextStyle(fontSize: 11),
                         ),
                         if (activeRound != null) ...[
@@ -1383,7 +1383,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                             color: const Color(0xFFCCCCCC),
                           ),
                           const SizedBox(width: 6),
-                          const Text('Size:', style: TextStyle(fontSize: 10, color: Color(0xFF666666))),
+                          const Text('Boyut:', style: TextStyle(fontSize: 10, color: Color(0xFF666666))),
                           const SizedBox(width: 4),
                           InkWell(
                             key: const ValueKey('canvas_contract_round_button'),
@@ -1428,7 +1428,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                                   : const Color(0xFFCCCCCC),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: const Text('New Round', style: TextStyle(fontSize: 10, color: Colors.white)),
+                            child: const Text('Yeni Tur', style: TextStyle(fontSize: 10, color: Colors.white)),
                           ),
                         ),
                       ],
