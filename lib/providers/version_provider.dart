@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 const String kEnvVersion = String.fromEnvironment('APP_VERSION', defaultValue: '');
-const String kDefaultVersion = 'v1.0.1+2';
+const String kDefaultVersion = 'v1.0.2+3';
 
 final appVersionProvider = FutureProvider<String>((ref) async {
   if (kEnvVersion.isNotEmpty) {
