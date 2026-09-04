@@ -1,6 +1,6 @@
 name: crochet_charts
 description: A crochet chart editor for creating and visualizing crochet patterns
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
