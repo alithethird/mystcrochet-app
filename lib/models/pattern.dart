@@ -176,6 +176,7 @@ class ParsedPattern {
   }
 }
 
+// ignore: constant_identifier_names
 const Map<String, StitchGeometry> STITCH_GEOMETRY = {
   'sl st': StitchGeometry(height: 8, width: 8, isChain: false),
   'slst': StitchGeometry(height: 8, width: 8, isChain: false),

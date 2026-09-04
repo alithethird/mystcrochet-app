@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models/guidelines.dart';
 import 'models/pattern.dart';
@@ -11,7 +12,9 @@ import 'widgets/panels.dart';
 import 'dialogs/new_chart_dialog.dart';
 import 'dialogs/text_view_dialog.dart';
 import 'dialogs/export_dialog.dart';
+import 'dialogs/save_chart_dialog.dart';
 import 'services/export_service.dart';
+import 'services/chart_file_service.dart';
 import 'widgets/build_version_badge.dart';
 
 void main() {
@@ -138,6 +141,63 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
     );
   }
 
+  Future<void> _handleSave(BuildContext context) async {
+    final chartState = ref.read(chartProvider);
+    final chart = chartState.chart;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => SaveChartDialog(
+        initialName: chart.name,
+        onSave: (fileName, updatedChartName) async {
+          if (updatedChartName != null && updatedChartName != chart.name) {
+            ref.read(chartProvider.notifier).setChart(
+                  chart.copyWith(name: updatedChartName),
+                  recordUndo: false,
+                );
+          }
+
+          final currentChart = ref.read(chartProvider).chart;
+          final messenger = ScaffoldMessenger.of(context);
+
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  ),
+                  SizedBox(width: 12),
+                  Text('Grafik kaydediliyor...'),
+                ],
+              ),
+              duration: Duration(milliseconds: 800),
+            ),
+          );
+
+          final success = await ChartFileService.saveChart(currentChart, fileName);
+          if (success) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('$fileName başarıyla kaydedildi.'),
+                backgroundColor: const Color(0xFF16A34A),
+              ),
+            );
+          } else {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text('Kayıt işlemi tamamlanamadı veya iptal edildi.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tabItems = [
@@ -154,27 +214,36 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
         fontFamily: 'system-ui, sans-serif',
       ),
       home: Builder(
-        builder: (innerContext) => Scaffold(
-          body: Column(
-            children: [
-              AppToolbar(
-                onNew: () => showDialog(
-                  context: innerContext,
-                  builder: (_) => NewChartDialog(onCreated: _handleNew),
-                ),
-                onOpen: () {},
-                onSave: () {},
-                onTextView: () => showDialog(
-                  context: innerContext,
-                  builder: (_) => ProviderScope(
-                    overrides: const [],
-                    child: Builder(
-                      builder: (ctx) => TextViewDialog(onClose: () => Navigator.pop(ctx)),
+        builder: (innerContext) => CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
+                _handleSave(innerContext),
+            const SingleActivator(LogicalKeyboardKey.keyS, meta: true): () =>
+                _handleSave(innerContext),
+          },
+          child: Focus(
+            autofocus: true,
+            child: Scaffold(
+              body: Column(
+                children: [
+                  AppToolbar(
+                    onNew: () => showDialog(
+                      context: innerContext,
+                      builder: (_) => NewChartDialog(onCreated: _handleNew),
                     ),
+                    onOpen: () {},
+                    onSave: () => _handleSave(innerContext),
+                    onTextView: () => showDialog(
+                      context: innerContext,
+                      builder: (_) => ProviderScope(
+                        overrides: const [],
+                        child: Builder(
+                          builder: (ctx) => TextViewDialog(onClose: () => Navigator.pop(ctx)),
+                        ),
+                      ),
+                    ),
+                    onExportPng: () => _handleExportPng(innerContext),
                   ),
-                ),
-                onExportPng: () => _handleExportPng(innerContext),
-              ),
               Expanded(
                 child: Row(
                   children: [
@@ -236,7 +305,9 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
 
