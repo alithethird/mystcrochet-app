@@ -72,7 +72,7 @@ class AppToolbar extends ConsumerWidget {
       ),
       IconButton(
         icon: const Icon(Icons.folder_open, size: 20),
-        tooltip: 'Grafik Aç',
+        tooltip: 'Grafik Aç (İçe Aktar)',
         onPressed: onOpen,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
@@ -84,7 +84,7 @@ class AppToolbar extends ConsumerWidget {
       ),
       IconButton(
         icon: const Icon(Icons.description, size: 20),
-        tooltip: 'Veri Görünümü',
+        tooltip: 'Veri Görünümü (JSON / İçe Aktar)',
         onPressed: onTextView,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),

@@ -11,6 +11,7 @@ import 'package:crochet_charts/providers/stitch_provider.dart';
 import 'package:crochet_charts/utils/serialization.dart';
 import 'package:crochet_charts/widgets/toolbar.dart';
 import 'package:crochet_charts/widgets/visual_chart_view.dart';
+import 'package:crochet_charts/dialogs/text_view_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -73,6 +74,16 @@ void main() {
         expect(positioned.length, 2);
         expect(positioned[0].length, 6);
         expect(positioned[1].length, 12);
+      }
+    });
+
+    test('parseChartBytes can parse user file /home/ali/Downloads/test1 (1).crochet', () async {
+      final file = File('/home/ali/Downloads/test1 (1).crochet');
+      if (file.existsSync()) {
+        final bytes = file.readAsBytesSync();
+        final chart = ChartFileService.parseChartBytes(bytes, fileName: 'test1 (1).crochet');
+        expect(chart.name, 'test1');
+        expect(chart.patternRounds.length, 3);
       }
     });
 
@@ -247,6 +258,65 @@ void main() {
       expect(notifier.state.loadId, 1);
       expect(notifier.state.canUndo, isFalse);
       expect(notifier.state.canRedo, isFalse);
+    });
+
+    test('parseChartJson parses raw JSON string into Chart', () {
+      const sample = '''
+{
+  "name": "Pasted Pattern",
+  "guidelines": { "type": 104 },
+  "patternRounds": [
+    { "number": 1, "stitches": [{ "kind": "stitch", "name": "sc", "count": 6 }] }
+  ]
+}''';
+      final chart = ChartFileService.parseChartJson(sample);
+      expect(chart.name, 'Pasted Pattern');
+      expect(chart.patternRounds.length, 1);
+    });
+
+    testWidgets('TextViewDialog import tab allows pasting JSON and loading chart', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final container = ProviderContainer();
+      bool closed = false;
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: TextViewDialog(
+                onClose: () => closed = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Switch to Import tab
+      await tester.tap(find.text('İçe Aktar (Import)'));
+      await tester.pumpAndSettle();
+
+      // Enter JSON into the text field
+      final inputFinder = find.byType(TextField);
+      expect(inputFinder, findsOneWidget);
+
+      await tester.enterText(
+        inputFinder,
+        '{"name": "Imported Via Paste", "patternRounds": []}',
+      );
+      await tester.pump();
+
+      // Tap 'İçe Aktar & Yükle'
+      await tester.tap(find.text('İçe Aktar & Yükle'));
+      await tester.pumpAndSettle();
+
+      expect(closed, isTrue);
+      expect(container.read(chartProvider).chart.name, 'Imported Via Paste');
     });
   });
 }

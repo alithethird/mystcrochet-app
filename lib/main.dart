@@ -268,7 +268,10 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                       builder: (_) => ProviderScope(
                         overrides: const [],
                         child: Builder(
-                          builder: (ctx) => TextViewDialog(onClose: () => Navigator.pop(ctx)),
+                          builder: (ctx) => TextViewDialog(
+                            onClose: () => Navigator.pop(ctx),
+                            onOpenFile: () => _handleOpen(innerContext),
+                          ),
                         ),
                       ),
                     ),

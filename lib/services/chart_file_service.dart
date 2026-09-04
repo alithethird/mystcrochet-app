@@ -36,25 +36,55 @@ abstract class ChartFileService {
   /// Parses a [Chart] from UTF-8 [bytes]. If [fileName] is provided and the chart
   /// name is empty or 'Untitled', it derives the name from [fileName].
   static Chart parseChartBytes(Uint8List bytes, {String? fileName}) {
-    final jsonStr = utf8.decode(bytes);
-    final chart = chartFromJson(jsonStr);
-    if (fileName != null && fileName.isNotEmpty && (chart.name.trim().isEmpty || chart.name == 'Untitled')) {
-      final fallbackName = fileName.replaceAll(RegExp(r'\.(crochet|json)$', caseSensitive: false), '');
-      return chart.copyWith(name: fallbackName);
+    try {
+      final jsonStr = utf8.decode(bytes);
+      return parseChartJson(jsonStr, name: fileName);
+    } on FormatException {
+      rethrow;
+    } catch (e) {
+      throw FormatException('Dosya çözümlenemedi: $e');
     }
-    return chart;
+  }
+
+  /// Parses a [Chart] directly from a JSON string.
+  static Chart parseChartJson(String jsonStr, {String? name}) {
+    final trimmed = jsonStr.trim();
+    if (trimmed.isEmpty) {
+      throw const FormatException('Boş grafik verisi.');
+    }
+    try {
+      final chart = chartFromJson(trimmed);
+      if (name != null && name.isNotEmpty && (chart.name.trim().isEmpty || chart.name == 'Untitled')) {
+        final fallbackName = name.replaceAll(RegExp(r'\.(crochet|json)$', caseSensitive: false), '');
+        return chart.copyWith(name: fallbackName);
+      }
+      return chart;
+    } on FormatException {
+      rethrow;
+    } catch (e) {
+      throw FormatException('Geçersiz grafik JSON verisi: $e');
+    }
   }
 
   /// Picks and loads a chart file (.crochet or .json) from the user's system.
   /// Returns [ChartLoadResult] or null if cancelled.
   static Future<ChartLoadResult?> openChart() async {
-    final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Open Crochet Chart',
-      type: FileType.custom,
-      allowedExtensions: ['crochet', 'json', 'CROCHET', 'JSON'],
-      withData: true,
-      withReadStream: true,
-    );
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Grafik Aç / İçe Aktar',
+        type: FileType.any,
+        withData: true,
+      );
+    } catch (_) {
+      // Fallback in case platform requires custom
+      result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Grafik Aç / İçe Aktar',
+        type: FileType.custom,
+        allowedExtensions: ['crochet', 'json'],
+        withData: true,
+      );
+    }
 
     if (result == null || result.files.isEmpty) {
       return null;
@@ -62,18 +92,6 @@ abstract class ChartFileService {
 
     final picked = result.files.first;
     Uint8List? bytes = picked.bytes;
-
-    if ((bytes == null || bytes.isEmpty) && picked.readStream != null) {
-      try {
-        final chunks = <int>[];
-        await for (final chunk in picked.readStream!) {
-          chunks.addAll(chunk);
-        }
-        if (chunks.isNotEmpty) {
-          bytes = Uint8List.fromList(chunks);
-        }
-      } catch (_) {}
-    }
 
     if ((bytes == null || bytes.isEmpty) && picked.path != null && picked.path!.isNotEmpty) {
       bytes = await readBytesPlatform(picked.path!);
