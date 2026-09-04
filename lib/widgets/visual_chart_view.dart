@@ -499,6 +499,7 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
   int _dragSides = 0;
   double _dragCornerRatio = 0;
   bool _dragPinned = false;
+  bool _hasRecordedDragUndo = false;
   int? _hoverRoundIdx;
   int? _hoverStitchIdx;
   int? _selectedRoundIdx;
@@ -685,7 +686,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
   }
 
   void _setStitchOffset(int positionedRi, int expandedSi, double value,
-      {required bool polygonMode, required bool pinned}) {
+      {required bool polygonMode, required bool pinned, bool recordUndo = true}) {
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     final rounds = List<PatternRound>.from(chart.patternRounds);
@@ -724,7 +725,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             stitches: sts,
             isMagicRing: rounds[i].isMagicRing,
           );
-          notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
+          notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)), recordUndo: recordUndo);
           return;
         }
         expCount += c;
@@ -732,7 +733,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     }
   }
 
-  void _setStitchAnchor(int positionedRi, int expandedSi, int? anchor) {
+  void _setStitchAnchor(int positionedRi, int expandedSi, int? anchor, {bool recordUndo = true}) {
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     final rounds = List<PatternRound>.from(chart.patternRounds);
@@ -759,7 +760,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             stitches: sts,
             isMagicRing: rounds[i].isMagicRing,
           );
-          notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
+          notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)), recordUndo: recordUndo);
           return;
         }
         expCount += c;
@@ -774,7 +775,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     return -1;
   }
 
-  void _maybeReanchorCircle(double angle, List<List<_PosStitch>> positioned) {
+  void _maybeReanchorCircle(double angle, List<List<_PosStitch>> positioned, {bool recordUndo = true}) {
     if (_dragPinned || _dragRoundIdx == null || _dragRoundIdx! <= 0) return;
     final ri = _dragRoundIdx!;
     final si = _dragStitchIdx!;
@@ -807,12 +808,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     if (!curFound || best < 0 || best == curAnchor) return;
     const margin = 12.0;
     if (bestD + margin * margin < curD) {
-      _setStitchAnchor(ri, si, best);
+      _setStitchAnchor(ri, si, best, recordUndo: recordUndo);
       _dragBaseAngle = prev[best].angle;
     }
   }
 
-  void _maybeReanchorPolygon(double clickPerim, List<List<_PosStitch>> positioned) {
+  void _maybeReanchorPolygon(double clickPerim, List<List<_PosStitch>> positioned, {bool recordUndo = true}) {
     if (_dragPinned || _dragRoundIdx == null || _dragRoundIdx! <= 0) return;
     final ri = _dragRoundIdx!;
     final si = _dragStitchIdx!;
@@ -847,7 +848,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     if (!curFound || best < 0 || best == curAnchor) return;
     const margin = 12.0;
     if (bestD + margin * margin < curD) {
-      _setStitchAnchor(ri, si, best);
+      _setStitchAnchor(ri, si, best, recordUndo: recordUndo);
       _dragBasePerim =
           pg.polygonPerimeterFromDirection(r, _dragSides, cr, prev[best].angle);
     }
@@ -870,6 +871,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final half = svgSize / 2;
     _dragRoundIdx = null;
     _dragStitchIdx = null;
+    _hasRecordedDragUndo = false;
     double bestDist = 20;
     for (int ri = 0; ri < positioned.length; ri++) {
       for (int si = 0; si < positioned[ri].length; si++) {
@@ -914,6 +916,13 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     if (_dragRoundIdx == null || _dragStitchIdx == null) return;
     final content = _contentLocal(globalPos);
     if (content == null) return;
+
+    // Save undo checkpoint once before the first move of this drag
+    if (!_hasRecordedDragUndo) {
+      ref.read(chartProvider.notifier).saveUndoCheckpoint();
+      _hasRecordedDragUndo = true;
+    }
+
     final half = svgSize / 2;
     final dx = content.dx - half;
     final dy = content.dy - half;
@@ -923,9 +932,9 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       final cr = pg.polygonCornerRadius(r, _dragSides, _dragCornerRatio);
       final clickPerim = pg.polygonPerimeterFromDirection(r, _dragSides, cr, atan2(dy, dx));
       if (_dragPinned) {
-        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, clickPerim, polygonMode: true, pinned: true);
+        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, clickPerim, polygonMode: true, pinned: true, recordUndo: false);
       } else {
-        _maybeReanchorPolygon(clickPerim, positioned);
+        _maybeReanchorPolygon(clickPerim, positioned, recordUndo: false);
         var delta = clickPerim - _dragBasePerim;
         final perim = pg.polygonPerimeter(r, _dragSides, cr);
         while (delta > perim / 2) {
@@ -934,15 +943,15 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
         while (delta < -perim / 2) {
           delta += perim;
         }
-        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, delta, polygonMode: true, pinned: false);
+        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, delta, polygonMode: true, pinned: false, recordUndo: false);
       }
     } else {
       final angle = atan2(dy, dx);
       if (_dragPinned) {
-        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle, polygonMode: false, pinned: true);
+        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle, polygonMode: false, pinned: true, recordUndo: false);
       } else {
-        _maybeReanchorCircle(angle, positioned);
-        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle - _dragBaseAngle, polygonMode: false, pinned: false);
+        _maybeReanchorCircle(angle, positioned, recordUndo: false);
+        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle - _dragBaseAngle, polygonMode: false, pinned: false, recordUndo: false);
       }
     }
   }
@@ -1054,6 +1063,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             _dragPointer = null;
             _dragRoundIdx = null;
             _dragStitchIdx = null;
+            _hasRecordedDragUndo = false;
           }
           if (event.pointer == _middleDragPointer) {
             _middleDragPointer = null;

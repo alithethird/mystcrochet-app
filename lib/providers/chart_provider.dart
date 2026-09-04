@@ -26,11 +26,25 @@ class ChartNotifier extends StateNotifier<ChartState> {
 
   Chart get chart => state.chart;
 
-  void setChart(Chart newChart) {
+  /// Saves the current state to the undo stack before beginning a batch/drag mutation.
+  void saveUndoCheckpoint() {
     _undoStack.add(state.chart);
     if (_undoStack.length > _maxHistory) _undoStack.removeAt(0);
     _redoStack.clear();
-    state = state.copyWith(chart: newChart, canUndo: true, canRedo: false);
+    state = state.copyWith(canUndo: true, canRedo: false);
+  }
+
+  void setChart(Chart newChart, {bool recordUndo = true}) {
+    if (recordUndo) {
+      _undoStack.add(state.chart);
+      if (_undoStack.length > _maxHistory) _undoStack.removeAt(0);
+      _redoStack.clear();
+    }
+    state = state.copyWith(
+      chart: newChart,
+      canUndo: _undoStack.isNotEmpty,
+      canRedo: recordUndo ? false : state.canRedo,
+    );
   }
 
   void undo() {
