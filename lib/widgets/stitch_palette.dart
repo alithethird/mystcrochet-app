@@ -116,9 +116,11 @@ class StitchPalette extends ConsumerWidget {
                 final isSelected = activeStitchName == stitch.name;
                 final colored =
                     substituteColors(stitch.svgContent, '#000000', '#ffffff');
-                return ListTile(
+                return Material(
+                  child: ListTile(
                   dense: true,
                   selected: isSelected,
+                  selectedTileColor: Colors.pink[100],
                   leading: SizedBox(
                     width: 28,
                     height: 28,
@@ -134,6 +136,7 @@ class StitchPalette extends ConsumerWidget {
                   onTap: () => ref
                       .read(stitchStoreProvider.notifier)
                       .setActiveStitchName(stitch.name),
+                ),
                 );
               },
             ),

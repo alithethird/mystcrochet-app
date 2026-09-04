@@ -19,6 +19,8 @@ class Guidelines {
   final double visualRoundSpacing;
   final int visualRadialDivisions;
   final double visualSnapThreshold;
+  final int visualShapeSides;
+  final double visualCornerRatio;
 
   Guidelines({
     required this.type,
@@ -26,6 +28,8 @@ class Guidelines {
     this.visualRoundSpacing = 50,
     this.visualRadialDivisions = 12,
     this.visualSnapThreshold = 50,
+    this.visualShapeSides = 0,
+    this.visualCornerRatio = 0.15,
   });
 
   factory Guidelines.fromJson(Map<String, dynamic> json) {
@@ -35,6 +39,8 @@ class Guidelines {
       visualRoundSpacing: (json['visualRoundSpacing'] as num?)?.toDouble() ?? 50,
       visualRadialDivisions: json['visualRadialDivisions'] as int? ?? 12,
       visualSnapThreshold: (json['visualSnapThreshold'] as num?)?.toDouble() ?? 50,
+      visualShapeSides: json['visualShapeSides'] as int? ?? 0,
+      visualCornerRatio: (json['visualCornerRatio'] as num?)?.toDouble() ?? 0.15,
     );
   }
 
@@ -45,6 +51,8 @@ class Guidelines {
       'visualRoundSpacing': visualRoundSpacing,
       'visualRadialDivisions': visualRadialDivisions,
       'visualSnapThreshold': visualSnapThreshold,
+      if (visualShapeSides != 0) 'visualShapeSides': visualShapeSides,
+      if (visualCornerRatio != 0.15) 'visualCornerRatio': visualCornerRatio,
     };
   }
 
@@ -54,6 +62,8 @@ class Guidelines {
     double? visualRoundSpacing,
     int? visualRadialDivisions,
     double? visualSnapThreshold,
+    int? visualShapeSides,
+    double? visualCornerRatio,
   }) {
     return Guidelines(
       type: type ?? this.type,
@@ -61,6 +71,8 @@ class Guidelines {
       visualRoundSpacing: visualRoundSpacing ?? this.visualRoundSpacing,
       visualRadialDivisions: visualRadialDivisions ?? this.visualRadialDivisions,
       visualSnapThreshold: visualSnapThreshold ?? this.visualSnapThreshold,
+      visualShapeSides: visualShapeSides ?? this.visualShapeSides,
+      visualCornerRatio: visualCornerRatio ?? this.visualCornerRatio,
     );
   }
 }

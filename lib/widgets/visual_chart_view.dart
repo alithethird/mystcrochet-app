@@ -8,18 +8,34 @@ import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
 import '../providers/stitch_provider.dart';
 import '../utils/svg.dart';
+import '../utils/polygon.dart' as pg;
 
 const stitchScale = 0.35;
 
-class _PosStitch {
+const _hoverFg = '#16A34A';
+const _hoverBg = '#86EFAC';
+const _hoverFgColor = Color(0xFF16A34A);
+const _hoverBgColor = Color(0xFF86EFAC);
+
+const _selectedFg = '#2563EB';
+const _selectedBg = '#BFDBFE';
+const _selectedFgColor = Color(0xFF2563EB);
+const _selectedBgColor = Color(0xFFBFDBFE);
+
+class PosStitch {
   final double x, y, angle, radius;
   final PatternStitch stitch;
   // When non-null, overrides `angle` for SVG rendering (e.g. stitches that
   // should visually "look at" their anchor instead of standing tangent to the
   // ring). Layout math (drag hit-testing, connections) still uses `angle`.
   final double? renderAngle;
-  const _PosStitch({required this.x, required this.y, required this.angle, required this.stitch, required this.radius, this.renderAngle});
+  // Perimeter arclength on a polygonal round. For circle (sides<3) this is
+  // unused (set to 0). Set when the round shape is a polygon so that drag and
+  // tap-slot operations can move along true perimeter length.
+  final double perimeterS;
+  const PosStitch({required this.x, required this.y, required this.angle, required this.stitch, required this.radius, this.renderAngle, this.perimeterS = 0});
 }
+typedef _PosStitch = PosStitch;
 
 double _roundSpacing(PatternRound round, StitchStoreNotifier notifier) {
   double maxH = 0.0;
@@ -86,9 +102,10 @@ double groupW(List<PatternStitch> g, double chainW, double chainH, double chainF
   return (g.length - 1) * 6 + maxW;
 }
 
-List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, double chainW, double chainH, double chainFan, StitchStoreNotifier notifier) {
+List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, double chainW, double chainH, double chainFan, StitchStoreNotifier notifier, {required int sides, required double cornerRatio}) {
   final result = <List<_PosStitch>>[];
   if (rounds.isEmpty) return result;
+  final polygonMode = sides >= 3;
   double curR = ringRadius;
   const pad = 5.0;
   final chainGeo = STITCH_GEOMETRY['ch'];
@@ -107,6 +124,9 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
     final spacing = _roundSpacing(round, notifier);
     final radius = result.isEmpty ? ringRadius : (curR += spacing);
     curR = radius;
+    final cr = polygonMode
+        ? pg.polygonCornerRadius(radius, sides, cornerRatio)
+        : 0.0;
     if (real.isEmpty) {
       // Empty round: reserve an index-aligned slot but place no stitches.
       // prevAngles / prevRadius refer to the last non-empty round, so the next
@@ -120,7 +140,7 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
     final curAngles = List<double>.filled(expanded.length, 0.0);
 
     // Determine anchored group angles from previous round connections
-    bool anchored = false;
+    bool hasPreviousConnections = false;
     final groupAngles = List<double?>.filled(groups.length, null);
     if (prevAngles != null) {
       for (int gi = 0; gi < groups.length; gi++) {
@@ -134,56 +154,68 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
         }
         if (conn != null && conn >= 0 && conn < prevAngles.length) {
           groupAngles[gi] = prevAngles[conn];
-          anchored = true;
+          hasPreviousConnections = true;
         }
       }
     }
 
-    // Apply user-pinned angles (from tapping to place chains at a specific
-    // point on the round). Pins override anchor-inherited angles so a chain
-    // can sit freely at its clicked position rather than inheriting a cluster's
-    // anchor angle.
-    for (int gi = 0; gi < groups.length; gi++) {
-      final g = groups[gi];
-      for (final s in g) {
-        if (s.pinnedAngle != null) {
-          groupAngles[gi] = s.pinnedAngle;
-          anchored = true;
-          break; // first pin in the group wins
+    // Apply user-pinned anchors.
+    // In rounds with previous connections (round 1+), pins can override or add anchors.
+    // In unanchored rounds (like round 0), we leave anchored = false so the round
+    // is laid out via width-proportional placement where each pinned stitch sits
+    // at its pinned position while other stitches remain evenly distributed.
+    if (hasPreviousConnections) {
+      for (int gi = 0; gi < groups.length; gi++) {
+        final g = groups[gi];
+        for (final s in g) {
+          if (polygonMode && s.pinnedPerimeter != null) {
+            groupAngles[gi] =
+                pg.polygonDirectionFromPerimeter(radius, sides, cr, s.pinnedPerimeter!);
+            break; // first pin in the group wins
+          } else if (s.pinnedAngle != null) {
+            groupAngles[gi] = s.pinnedAngle;
+            break; // first pin in the group wins
+          }
         }
       }
     }
+
+    final anchored = hasPreviousConnections;
 
     if (anchored) {
-      // Interpolate unanchored groups between their anchored neighbors
-      double? lastA;
-      for (int gi = 0; gi < groups.length; gi++) {
-        if (groupAngles[gi] != null) {
-          lastA = groupAngles[gi];
-          continue;
-        }
-        double? nextA;
-        for (int gj = gi + 1; gj < groups.length; gj++) {
-          if (groupAngles[gj] != null) {
-            nextA = groupAngles[gj];
-            break;
+      // Find all indices that have an anchor or pin angle
+      final anchorIndices = <int>[
+        for (int i = 0; i < groups.length; i++)
+          if (groupAngles[i] != null) i,
+      ];
+
+      if (anchorIndices.isNotEmpty && anchorIndices.length < groups.length) {
+        // Interpolate each span of unanchored groups evenly between its anchor neighbors
+        for (int aIdx = 0; aIdx < anchorIndices.length; aIdx++) {
+          final startAnchor = anchorIndices[aIdx];
+          final endAnchor = anchorIndices[(aIdx + 1) % anchorIndices.length];
+          final prevA = groupAngles[startAnchor]!;
+          var nA = groupAngles[endAnchor]!;
+
+          // Moving clockwise (decreasing angle)
+          if (anchorIndices.length == 1) {
+            nA = prevA - 2 * pi;
+          } else {
+            while (nA >= prevA) {
+              nA -= 2 * pi;
+            }
+            while (prevA - nA > 2 * pi) {
+              nA += 2 * pi;
+            }
+          }
+
+          final spanLength = (endAnchor - startAnchor - 1 + groups.length) % groups.length;
+          for (int k = 1; k <= spanLength; k++) {
+            final gi = (startAnchor + k) % groups.length;
+            final fraction = k / (spanLength + 1);
+            groupAngles[gi] = prevA + (nA - prevA) * fraction;
           }
         }
-        final prevA = lastA ?? (() {
-          for (int gj = groups.length - 1; gj >= 0; gj--) {
-            if (groupAngles[gj] != null) return groupAngles[gj]! + 2 * pi;
-          }
-          return 0.0;
-        }());
-        double nA = nextA ?? (() {
-          for (int gj = 0; gj < groups.length; gj++) {
-            if (groupAngles[gj] != null) return groupAngles[gj]!;
-          }
-          return 0.0;
-        }());
-        while (nA > prevA) { nA -= 2 * pi; }
-        groupAngles[gi] = (prevA + nA) / 2;
-        lastA = groupAngles[gi];
       }
 
       // Place all groups in order.
@@ -211,22 +243,31 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
         for (final s in g) {
           if (s.connectsTo != null) { conn = s.connectsTo; break; }
         }
+        double spreadPx = 0;
         if (conn != null) {
           final k = (anchorRepeat[conn] ?? 0);
           final n = anchorCount[conn] ?? 1;
           // Center the cluster around the anchor: for N groups sharing an
           // anchor, offsets are -(N-1)/2 .. +(N-1)/2 stepped by 18 px.
-          a += (k - (n - 1) / 2) * 18 / radius;
+          if (polygonMode) {
+            spreadPx = (k - (n - 1) / 2) * 18;
+          } else {
+            a += (k - (n - 1) / 2) * 18 / radius;
+          }
           anchorRepeat[conn] = k + 1;
         }
         for (int i = 0; i < g.length; i++) {
           final st = g[i];
           final off = g.length > 1 ? (i - (g.length - 1) / 2) * 6 : 0;
-          final pa = a + off / radius + (st.angleOffset ?? 0);
           final isCh = st.kind == 'chain';
           final r = radius - (isCh ? chainInset : 0);
-          final nx = r * cos(pa);
-          final ny = r * sin(pa);
+          final proj = _projectStitch(r, sides, cornerRatio, a,
+              pinnedAngleFor: polygonMode ? null : st.pinnedAngle,
+              pinnedPerimFor: polygonMode ? st.pinnedPerimeter : null,
+              offsetRad: polygonMode ? 0 : (st.angleOffset ?? 0),
+              offsetPx: polygonMode ? spreadPx + off + (st.perimeterOffset ?? 0) : 0);
+          final nx = proj.x;
+          final ny = proj.y;
           // Stitches anchored to a previous-round stitch tilt so their bottoms point
           // at the anchor's position: the SVG's head axis (renderAngle) points
           // away from the anchor. For a single-anchor stitch lying on the
@@ -235,54 +276,164 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
           // inward toward the anchor.
           double? renderAngle;
           if (st.connectsTo != null && prevRadius != null) {
-            final ax = prevRadius * cos(baseA);
-            final ay = prevRadius * sin(baseA);
+            double ax, ay;
+            if (polygonMode) {
+              final (ap, _) = pg.polygonPointAt(prevRadius, sides, cr,
+                  pg.polygonPerimeterFromDirection(prevRadius, sides, cr, baseA));
+              ax = ap.dx; ay = ap.dy;
+            } else {
+              ax = prevRadius * cos(baseA);
+              ay = prevRadius * sin(baseA);
+            }
             // Direction from stitch to anchor; head points the opposite way.
             renderAngle = atan2(ay - ny, ax - nx) - pi;
           }
-          pos.add(_PosStitch(x: nx, y: ny, angle: pa, stitch: st, radius: radius, renderAngle: renderAngle));
-          curAngles[expIdx + i] = pa;
+          final paDir = proj.dir;
+          pos.add(_PosStitch(
+              x: nx, y: ny, angle: paDir, stitch: st, radius: radius,
+              renderAngle: renderAngle, perimeterS: proj.s));
+          curAngles[expIdx + i] = paDir;
         }
         expIdx += g.length;
       }
     } else {
       // Width-proportional placement (first round / fallback)
       final total = groups.fold<double>(0, (a, g) => a + (g[0].kind == 'slipStitch' ? 0 : groupW(g, chainW, chainH, chainFan, isLead: identical(g, groups.first)) + pad));
-      final px2rad = (2 * pi) / max(total, 1);
-      double cum = 0;
-      int expIdx = 0;
-      for (int gi = 0; gi < groups.length; gi++) {
-        final g = groups[gi];
-        if (g[0].kind == 'slipStitch') {
-          final a = -((cum - pad / 2) * px2rad) - pi / 2;
+      if (polygonMode) {
+        // Distribute stitches' total pixel width evenly around the polygon's
+        // perimeter. Each group's arclength is groupW (px); conversion to a
+        // perimeter position is direct.
+        final perimeterDense = pg.polygonPerimeter(radius, sides, cr);
+        final px2perim = perimeterDense / max(total, 1);
+        double cum = 0;
+        int expIdx = 0;
+        for (int gi = 0; gi < groups.length; gi++) {
+          final g = groups[gi];
+          if (g[0].kind == 'slipStitch') {
+            final s = (cum - pad / 2) * px2perim;
+            for (int i = 0; i < g.length; i++) {
+              final st = g[i];
+              final proj = _projectStitch(radius, sides, cornerRatio, 0,
+                  pinnedPerimFor: st.pinnedPerimeter ?? (s + (st.perimeterOffset ?? 0)),
+                  offsetPx: 0);
+              pos.add(_PosStitch(
+                  x: proj.x, y: proj.y, angle: proj.dir,
+                  stitch: st, radius: radius, perimeterS: proj.s));
+              curAngles[expIdx + i] = proj.dir;
+            }
+            expIdx += g.length;
+            continue;
+          }
+          final w = groupW(g, chainW, chainH, chainFan, isLead: identical(g, groups.first));
+          final s = (cum + w / 2) * px2perim;
+          cum += w + pad;
           for (int i = 0; i < g.length; i++) {
-            final pa = a + (g[i].angleOffset ?? 0);
-            pos.add(_PosStitch(x: radius * cos(pa), y: radius * sin(pa), angle: pa, stitch: g[i], radius: radius));
+            final st = g[i];
+            final off = g.length > 1 ? (i - (g.length - 1) / 2) * 6 : 0;
+            final isCh = st.kind == 'chain';
+            final r = radius - (isCh ? chainInset : 0);
+            final proj = _projectStitch(r, sides, cornerRatio, 0,
+                pinnedPerimFor: st.pinnedPerimeter ?? (s + off + (st.perimeterOffset ?? 0)),
+                offsetPx: 0);
+            pos.add(_PosStitch(
+                x: proj.x, y: proj.y, angle: proj.dir,
+                stitch: st, radius: radius, perimeterS: proj.s));
+            curAngles[expIdx + i] = proj.dir;
+          }
+          expIdx += g.length;
+        }
+      } else {
+        final px2rad = (2 * pi) / max(total, 1);
+        double cum = 0;
+        int expIdx = 0;
+        for (int gi = 0; gi < groups.length; gi++) {
+          final g = groups[gi];
+          if (g[0].kind == 'slipStitch') {
+            final a = -((cum - pad / 2) * px2rad) - pi / 2;
+            for (int i = 0; i < g.length; i++) {
+              final pa = g[i].pinnedAngle ?? (a + (g[i].angleOffset ?? 0));
+              pos.add(_PosStitch(x: radius * cos(pa), y: radius * sin(pa), angle: pa, stitch: g[i], radius: radius));
+              curAngles[expIdx + i] = pa;
+            }
+            expIdx += g.length;
+            continue;
+          }
+          final w = groupW(g, chainW, chainH, chainFan, isLead: identical(g, groups.first));
+          final a = -((cum + w / 2) * px2rad) - pi / 2;
+          cum += w + pad;
+          for (int i = 0; i < g.length; i++) {
+            final st = g[i];
+            final off = g.length > 1 ? (i - (g.length - 1) / 2) * 6 : 0;
+            final pa = st.pinnedAngle ?? (a + off * px2rad + (st.angleOffset ?? 0));
+            final isCh = st.kind == 'chain';
+            final r = radius - (isCh ? chainInset : 0);
+            pos.add(_PosStitch(x: r * cos(pa), y: r * sin(pa), angle: pa, stitch: st, radius: radius));
             curAngles[expIdx + i] = pa;
           }
           expIdx += g.length;
-          continue;
         }
-        final w = groupW(g, chainW, chainH, chainFan, isLead: identical(g, groups.first));
-        final a = -((cum + w / 2) * px2rad) - pi / 2;
-        cum += w + pad;
-        for (int i = 0; i < g.length; i++) {
-          final st = g[i];
-          final off = g.length > 1 ? (i - (g.length - 1) / 2) * 6 : 0;
-          final pa = a + off * px2rad + (st.angleOffset ?? 0);
-          final isCh = st.kind == 'chain';
-          final r = radius - (isCh ? chainInset : 0);
-          pos.add(_PosStitch(x: r * cos(pa), y: r * sin(pa), angle: pa, stitch: st, radius: radius));
-          curAngles[expIdx + i] = pa;
-        }
-        expIdx += g.length;
       }
     }
-    result.add(pos);
-    prevAngles = curAngles;
-    prevRadius = radius;
+result.add(pos);
+     prevAngles = curAngles;
+     prevRadius = radius;
+   }
+   return result;
+}
+
+List<List<PosStitch>> layoutChart(
+  List<PatternRound> rounds,
+  double ringRadius,
+  double chainW,
+  double chainH,
+  double chainFan,
+  StitchStoreNotifier notifier, {
+  required int sides,
+  required double cornerRatio,
+}) =>
+    _layout(rounds, ringRadius, chainW, chainH, chainFan, notifier,
+        sides: sides, cornerRatio: cornerRatio);
+
+/// Shape-aware projection of a stitch onto a round's outline.
+///
+/// For circle (sides < 3): `baseDir` is the math angle, `offsetRad` adds
+/// radians; returns position `r·cos/sin`, `dir` = the math angle, `s` = 0
+/// (perimeter arclength unused in circle mode).
+///
+/// For polygon (sides >= 3): `pinnedPerimFor` (if set) overrides the position
+/// directly at that arclength; otherwise `baseDir` is converted to a perimeter
+/// arclength and `offsetPx` pixels are added; returns position via
+/// `pg.polygonPointAt`, `dir` = `atan2(y, x)` of the resolved position (so
+/// next-round anchor matching still works), `s` = the resolved arclength.
+///
+/// `cornerRatio` is the polygon corner-radius ratio (relative to side length);
+/// the actual corner radius is recomputed for the given `radius`.
+class _Proj {
+  final double x, y, dir, s;
+  const _Proj(this.x, this.y, this.dir, this.s);
+}
+
+_Proj _projectStitch(
+  double radius, int sides, double cornerRatio, double baseDir, {
+  double? pinnedAngleFor,
+  double? pinnedPerimFor,
+  double offsetRad = 0.0,
+  double offsetPx = 0.0,
+}) {
+  if (sides >= 3) {
+    final cr = pg.polygonCornerRadius(radius, sides, cornerRatio);
+    double s;
+    if (pinnedPerimFor != null) {
+      s = pinnedPerimFor + offsetPx;
+    } else {
+      s = pg.polygonPerimeterFromDirection(radius, sides, cr, baseDir) + offsetPx;
+    }
+    final (pos, _) = pg.polygonPointAt(radius, sides, cr, s);
+    return _Proj(pos.dx, pos.dy, atan2(pos.dy, pos.dx), s);
+  } else {
+    final a = (pinnedAngleFor ?? baseDir) + offsetRad;
+    return _Proj(radius * cos(a), radius * sin(a), a, 0);
   }
-  return result;
 }
 
 String _kindForName(String name) {
@@ -336,11 +487,22 @@ class VisualChartView extends ConsumerStatefulWidget {
 
 class _VisualChartViewState extends ConsumerState<VisualChartView> {
   final TransformationController _transform = TransformationController();
+  final GlobalKey _viewKey = GlobalKey();
   int? _middleDragPointer;
   Offset? _middleDragLast;
   int? _dragRoundIdx;
   int? _dragStitchIdx;
+  int? _dragPointer;
   double _dragBaseAngle = 0;
+  // Polygon drag: base perimeter arclength of the dragged stitch at drag start.
+  double _dragBasePerim = 0;
+  int _dragSides = 0;
+  double _dragCornerRatio = 0;
+  bool _dragPinned = false;
+  int? _hoverRoundIdx;
+  int? _hoverStitchIdx;
+  int? _selectedRoundIdx;
+  int? _selectedStitchIdx;
 
   @override
   void dispose() {
@@ -348,16 +510,17 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     super.dispose();
   }
 
-  void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? positioned) {
-    final activeName = ref.read(stitchStoreProvider).activeStitchName;
-    if (activeName == null || activeName.isEmpty) return;
+void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? positioned, {required int sides, required double cornerRatio}) {
+     final activeName = ref.read(stitchStoreProvider).activeStitchName;
+     if (activeName == null || activeName.isEmpty) return;
 
-    final notifier = ref.read(chartProvider.notifier);
-    final chart = notifier.chart;
-    final half = svgSize / 2;
-    final dx = localPos.dx - half;
-    final dy = localPos.dy - half;
-    final dist = sqrt(dx * dx + dy * dy);
+     final notifier = ref.read(chartProvider.notifier);
+     final chart = notifier.chart;
+     final half = svgSize / 2;
+     final dx = localPos.dx - half;
+     final dy = localPos.dy - half;
+     final dist = sqrt(dx * dx + dy * dy);
+     final polygonMode = sides >= 3;
 
     final record = ref.read(stitchStoreProvider).getStitch(activeName);
     final isStarter = record?.category.contains('starters') ?? false;
@@ -396,7 +559,9 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
         prevLayoutIdx < positioned.length &&
         positioned[prevLayoutIdx].isNotEmpty) {
       if (kind == 'chain') {
-        // Chains never anchor; pin to the click's absolute angle.
+        // Chains never anchor; pin to the click's absolute direction. Both
+        // circle and polygon modes use math direction here — `_layout`'s
+        // polygon path resolves the direction at the round's actual radius.
         pinnedAngle = atan2(dy, dx);
       } else {
         // Non-chain: snap to the nearest previous-round stitch (regardless of
@@ -417,14 +582,6 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
         // rather than always at the (clockwise) end. _layout spreads
         // same-anchor groups by their order in the expanded list, so the list
         // rank IS the slot around the anchor.
-        final anchorAngle = positioned[prevLayoutIdx][bestSi].angle;
-        var delta = (atan2(dy, dx) - anchorAngle);
-        while (delta > pi) {
-          delta -= 2 * pi;
-        }
-        while (delta < -pi) {
-          delta += 2 * pi;
-        }
         // Count existing stitches in the last round already anchored here.
         int n = 0;
         if (chart.patternRounds.isNotEmpty) {
@@ -433,11 +590,39 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
             if (s.connectsTo == bestSi && s.kind != 'chain') n++;
           }
         }
-        // Slot spacing in _layout is 18 px; express the click's angular offset
-        // in those units and round to the nearest slot of the (n+1)-cluster.
-        final stride = 18 / dist; // radians per slot at the click's radius
-        final m = (delta / stride + n / 2).round().clamp(0, n);
-        insertSlot = m;
+        if (polygonMode) {
+          // Compute click perimeter on the previous round's polygon and slot
+          // ordering using perimeter deltas in pixels (slot stride = 18 px).
+          final prevR = positioned[prevLayoutIdx][bestSi].radius;
+          final prevCr = pg.polygonCornerRadius(prevR, sides, cornerRatio);
+          final anchorPerim = positioned[prevLayoutIdx][bestSi].perimeterS;
+          final clickPerim =
+              pg.polygonPerimeterFromDirection(prevR, sides, prevCr, atan2(dy, dx));
+          var delta = clickPerim - anchorPerim;
+          final perim = pg.polygonPerimeter(prevR, sides, prevCr);
+          while (delta > perim / 2) {
+            delta -= perim;
+          }
+          while (delta < -perim / 2) {
+            delta += perim;
+          }
+          final m = (delta / 18 + n / 2).round().clamp(0, n);
+          insertSlot = m;
+        } else {
+          final anchorAngle = positioned[prevLayoutIdx][bestSi].angle;
+          var delta = (atan2(dy, dx) - anchorAngle);
+          while (delta > pi) {
+            delta -= 2 * pi;
+          }
+          while (delta < -pi) {
+            delta += 2 * pi;
+          }
+          // Slot spacing in _layout is 18 px; express the click's angular offset
+          // in those units and round to the nearest slot of the (n+1)-cluster.
+          final stride = 18 / dist; // radians per slot at the click's radius
+          final m = (delta / stride + n / 2).round().clamp(0, n);
+          insertSlot = m;
+        }
       }
     }
 
@@ -499,7 +684,8 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
   }
 
-  void _setStitchAngleOffset(int positionedRi, int expandedSi, double offset) {
+  void _setStitchOffset(int positionedRi, int expandedSi, double value,
+      {required bool polygonMode, required bool pinned}) {
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     final rounds = List<PatternRound>.from(chart.patternRounds);
@@ -517,9 +703,22 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
         final s = real[j];
         final c = s.kind == 'stitch' ? (s.count ?? 1) : 1;
         if (expCount + c > expandedSi) {
-          final updated = s.copyWith(angleOffset: offset);
+          final PatternStitch updated;
+          if (pinned) {
+            updated = polygonMode
+                ? s.copyWith(pinnedPerimeter: value, perimeterOffset: null)
+                : s.copyWith(pinnedAngle: value, angleOffset: null);
+          } else {
+            updated = polygonMode
+                ? s.copyWith(perimeterOffset: value, pinnedPerimeter: null)
+                : s.copyWith(angleOffset: value, pinnedAngle: null);
+          }
+          debugPrint('SETSTITCHOFFSET ri=$positionedRi si=$expandedSi pinned=$pinned mode=$polygonMode kind=${s.kind} value=${value.toStringAsFixed(2)}');
           final sts = List<PatternStitch>.from(rounds[i].stitches);
-          sts[j] = updated;
+          final rawIdx = sts.indexOf(s);
+          if (rawIdx != -1) {
+            sts[rawIdx] = updated;
+          }
           rounds[i] = PatternRound(
             number: rounds[i].number,
             stitches: sts,
@@ -529,6 +728,221 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
           return;
         }
         expCount += c;
+      }
+    }
+  }
+
+  void _setStitchAnchor(int positionedRi, int expandedSi, int? anchor) {
+    final notifier = ref.read(chartProvider.notifier);
+    final chart = notifier.chart;
+    final rounds = List<PatternRound>.from(chart.patternRounds);
+    int chartRi = -1;
+    for (int i = 0; i < rounds.length; i++) {
+      final real = rounds[i].stitches.where((s) => s.kind != 'magicRing').toList();
+      final magicOnly = real.isEmpty && rounds[i].stitches.isNotEmpty;
+      if (magicOnly) continue;
+      chartRi++;
+      if (real.isEmpty) continue;
+      if (chartRi != positionedRi) continue;
+      int expCount = 0;
+      for (int j = 0; j < real.length; j++) {
+        final s = real[j];
+        final c = s.kind == 'stitch' ? (s.count ?? 1) : 1;
+        if (expCount + c > expandedSi) {
+          final sts = List<PatternStitch>.from(rounds[i].stitches);
+          final rawIdx = sts.indexOf(s);
+          if (rawIdx != -1) {
+            sts[rawIdx] = s.copyWith(connectsTo: anchor);
+          }
+          rounds[i] = PatternRound(
+            number: rounds[i].number,
+            stitches: sts,
+            isMagicRing: rounds[i].isMagicRing,
+          );
+          notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
+          return;
+        }
+        expCount += c;
+      }
+    }
+  }
+
+  int _prevNonEmptyRound(int ri, List<List<_PosStitch>> positioned) {
+    for (int pr = ri - 1; pr >= 0; pr--) {
+      if (positioned[pr].isNotEmpty) return pr;
+    }
+    return -1;
+  }
+
+  void _maybeReanchorCircle(double angle, List<List<_PosStitch>> positioned) {
+    if (_dragPinned || _dragRoundIdx == null || _dragRoundIdx! <= 0) return;
+    final ri = _dragRoundIdx!;
+    final si = _dragStitchIdx!;
+    final dragged = positioned[ri][si];
+    final curAnchor = dragged.stitch.connectsTo;
+    if (curAnchor == null) return;
+    final prevRi = _prevNonEmptyRound(ri, positioned);
+    if (prevRi < 0) return;
+    final prev = positioned[prevRi];
+    final r = dragged.radius;
+    final px = r * cos(angle);
+    final py = r * sin(angle);
+    int best = -1;
+    double bestD = double.infinity;
+    double curD = double.infinity;
+    bool curFound = false;
+    for (int pi = 0; pi < prev.length; pi++) {
+      final a = prev[pi];
+      if (a.stitch.kind == 'slipStitch') continue;
+      final d = (a.x - px) * (a.x - px) + (a.y - py) * (a.y - py);
+      if (d < bestD) {
+        bestD = d;
+        best = pi;
+      }
+      if (pi == curAnchor && !curFound) {
+        curD = d;
+        curFound = true;
+      }
+    }
+    if (!curFound || best < 0 || best == curAnchor) return;
+    const margin = 12.0;
+    if (bestD + margin * margin < curD) {
+      _setStitchAnchor(ri, si, best);
+      _dragBaseAngle = prev[best].angle;
+    }
+  }
+
+  void _maybeReanchorPolygon(double clickPerim, List<List<_PosStitch>> positioned) {
+    if (_dragPinned || _dragRoundIdx == null || _dragRoundIdx! <= 0) return;
+    final ri = _dragRoundIdx!;
+    final si = _dragStitchIdx!;
+    final dragged = positioned[ri][si];
+    final curAnchor = dragged.stitch.connectsTo;
+    if (curAnchor == null) return;
+    final prevRi = _prevNonEmptyRound(ri, positioned);
+    if (prevRi < 0) return;
+    final prev = positioned[prevRi];
+    final r = dragged.radius;
+    final cr = pg.polygonCornerRadius(r, _dragSides, _dragCornerRatio);
+    final (pos, _) = pg.polygonPointAt(r, _dragSides, cr, clickPerim);
+    final px = pos.dx;
+    final py = pos.dy;
+    int best = -1;
+    double bestD = double.infinity;
+    double curD = double.infinity;
+    bool curFound = false;
+    for (int pi = 0; pi < prev.length; pi++) {
+      final a = prev[pi];
+      if (a.stitch.kind == 'slipStitch') continue;
+      final d = (a.x - px) * (a.x - px) + (a.y - py) * (a.y - py);
+      if (d < bestD) {
+        bestD = d;
+        best = pi;
+      }
+      if (pi == curAnchor && !curFound) {
+        curD = d;
+        curFound = true;
+      }
+    }
+    if (!curFound || best < 0 || best == curAnchor) return;
+    const margin = 12.0;
+    if (bestD + margin * margin < curD) {
+      _setStitchAnchor(ri, si, best);
+      _dragBasePerim =
+          pg.polygonPerimeterFromDirection(r, _dragSides, cr, prev[best].angle);
+    }
+  }
+
+  Offset? _contentLocal(Offset global) {
+    final box = _viewKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return null;
+    final local = box.globalToLocal(global);
+    final matrix = _transform.value;
+    final inverse = Matrix4.identity()..copyInverse(matrix);
+    return MatrixUtils.transformPoint(inverse, local);
+  }
+
+  void _startDrag(Offset globalPos, double svgSize, List<List<_PosStitch>> positioned,
+      {required int sides, required double cornerRatio}) {
+    debugPrint('STARTDRAG');
+    final content = _contentLocal(globalPos);
+    if (content == null) return;
+    final half = svgSize / 2;
+    _dragRoundIdx = null;
+    _dragStitchIdx = null;
+    double bestDist = 20;
+    for (int ri = 0; ri < positioned.length; ri++) {
+      for (int si = 0; si < positioned[ri].length; si++) {
+        final p = positioned[ri][si];
+        final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) + (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
+        if (d < bestDist) {
+          bestDist = d;
+          _dragRoundIdx = ri;
+          _dragStitchIdx = si;
+        }
+      }
+    }
+    if (_dragRoundIdx != null) {
+      final dragged = positioned[_dragRoundIdx!][_dragStitchIdx!];
+      _dragSides = sides;
+      _dragCornerRatio = cornerRatio;
+      _dragPinned = dragged.stitch.connectsTo == null;
+      debugPrint('STARTDRAG grabbed ri=$_dragRoundIdx si=$_dragStitchIdx pinned=$_dragPinned angle=${dragged.angle}');
+      if (sides >= 3) {
+        final prevPerimOffset = dragged.stitch.perimeterOffset ?? 0;
+        _dragBasePerim = dragged.perimeterS - prevPerimOffset;
+      } else {
+        _dragBaseAngle = dragged.angle - (dragged.stitch.angleOffset ?? 0);
+      }
+      if (_selectedRoundIdx != _dragRoundIdx || _selectedStitchIdx != _dragStitchIdx) {
+        setState(() {
+          _selectedRoundIdx = _dragRoundIdx;
+          _selectedStitchIdx = _dragStitchIdx;
+        });
+      }
+    } else {
+      if (_selectedRoundIdx != null || _selectedStitchIdx != null) {
+        setState(() {
+          _selectedRoundIdx = null;
+          _selectedStitchIdx = null;
+        });
+      }
+    }
+  }
+
+  void _updateDrag(Offset globalPos, double svgSize, List<List<_PosStitch>> positioned) {
+    if (_dragRoundIdx == null || _dragStitchIdx == null) return;
+    final content = _contentLocal(globalPos);
+    if (content == null) return;
+    final half = svgSize / 2;
+    final dx = content.dx - half;
+    final dy = content.dy - half;
+    if (_dragSides >= 3) {
+      final dragged = positioned[_dragRoundIdx!][_dragStitchIdx!];
+      final r = dragged.radius;
+      final cr = pg.polygonCornerRadius(r, _dragSides, _dragCornerRatio);
+      final clickPerim = pg.polygonPerimeterFromDirection(r, _dragSides, cr, atan2(dy, dx));
+      if (_dragPinned) {
+        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, clickPerim, polygonMode: true, pinned: true);
+      } else {
+        _maybeReanchorPolygon(clickPerim, positioned);
+        var delta = clickPerim - _dragBasePerim;
+        final perim = pg.polygonPerimeter(r, _dragSides, cr);
+        while (delta > perim / 2) {
+          delta -= perim;
+        }
+        while (delta < -perim / 2) {
+          delta += perim;
+        }
+        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, delta, polygonMode: true, pinned: false);
+      }
+    } else {
+      final angle = atan2(dy, dx);
+      if (_dragPinned) {
+        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle, polygonMode: false, pinned: true);
+      } else {
+        _maybeReanchorCircle(angle, positioned);
+        _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle - _dragBaseAngle, polygonMode: false, pinned: false);
       }
     }
   }
@@ -549,7 +963,11 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     final chainH = chainSize.$2;
     final chainFan = chainW * 0.8;
     final effectiveRingRadius = _computeRingRadius(rounds, widget.ringRadius, stitchNotifier);
-    final positioned = rounds.isNotEmpty ? _layout(rounds, effectiveRingRadius, chainW, chainH, chainFan, stitchNotifier) : null;
+    final sides = chart.guidelines.visualShapeSides;
+    final cornerRatio = chart.guidelines.visualCornerRatio;
+    final positioned = rounds.isNotEmpty
+        ? _layout(rounds, effectiveRingRadius, chainW, chainH, chainFan, stitchNotifier, sides: sides, cornerRatio: cornerRatio)
+        : null;
     final roundStarts = <double>[effectiveRingRadius];
     bool firstRound = true;
     for (final round in rounds) {
@@ -599,15 +1017,27 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     }
 
     return Container(
+      key: _viewKey,
       color: Colors.white,
       child: Listener(
         onPointerDown: (event) {
-          if (event.buttons != kPrimaryButton) {
+          if (event.buttons == kPrimaryButton) {
+            if (editState.mode == EditMode.move && positioned != null) {
+              _startDrag(event.position, svgSize, positioned, sides: sides, cornerRatio: cornerRatio);
+              _dragPointer = event.pointer;
+            }
+          } else {
             _middleDragPointer = event.pointer;
             _middleDragLast = event.position;
           }
         },
         onPointerMove: (event) {
+          if (event.pointer == _dragPointer) {
+            if (editState.mode == EditMode.move && positioned != null) {
+              _updateDrag(event.position, svgSize, positioned);
+            }
+            return;
+          }
           if (event.pointer == _middleDragPointer && _middleDragLast != null) {
             if (event.buttons != kPrimaryButton) {
               final scale = _transform.value.getMaxScaleOnAxis();
@@ -620,6 +1050,11 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
           }
         },
         onPointerUp: (event) {
+          if (event.pointer == _dragPointer) {
+            _dragPointer = null;
+            _dragRoundIdx = null;
+            _dragStitchIdx = null;
+          }
           if (event.pointer == _middleDragPointer) {
             _middleDragPointer = null;
             _middleDragLast = null;
@@ -635,15 +1070,64 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
             );
           }
         },
-        child: GestureDetector(
+        child: MouseRegion(
+          cursor: editState.mode == EditMode.move
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          onHover: (event) {
+            if (_dragRoundIdx != null) return;
+            if (editState.mode != EditMode.move || positioned == null) {
+              if (_hoverRoundIdx != null || _hoverStitchIdx != null) {
+                setState(() {
+                  _hoverRoundIdx = null;
+                  _hoverStitchIdx = null;
+                });
+              }
+              return;
+            }
+            final matrix = _transform.value;
+            final inverse = Matrix4.identity()..copyInverse(matrix);
+            final content = MatrixUtils.transformPoint(inverse, event.localPosition);
+            final half = svgSize / 2;
+            double bestDist = 20;
+            int? hitRi;
+            int? hitSi;
+            for (int ri = 0; ri < positioned.length; ri++) {
+              for (int si = 0; si < positioned[ri].length; si++) {
+                final p = positioned[ri][si];
+                final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) + (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
+                if (d < bestDist) {
+                  bestDist = d;
+                  hitRi = ri;
+                  hitSi = si;
+                }
+              }
+            }
+            if (hitRi != _hoverRoundIdx || hitSi != _hoverStitchIdx) {
+              setState(() {
+                _hoverRoundIdx = hitRi;
+                _hoverStitchIdx = hitSi;
+              });
+            }
+          },
+          onExit: (_) {
+            setState(() {
+              _hoverRoundIdx = null;
+              _hoverStitchIdx = null;
+            });
+          },
+          child: GestureDetector(
           onTapUp: (details) {
+            debugPrint('TAPUP mode=${editState.mode}');
             final matrix = _transform.value;
             final inverse = Matrix4.identity()..copyInverse(matrix);
             final content = MatrixUtils.transformPoint(inverse, details.localPosition);
-            _placeStitch(content, svgSize, positioned);
+            if (editState.mode != EditMode.stitch) return;
+            _placeStitch(content, svgSize, positioned, sides: sides, cornerRatio: cornerRatio);
           },
           onPanStart: (details) {
-            if (editState.mode != EditMode.stitch || positioned == null) return;
+            debugPrint('PANSTART mode=${editState.mode} positioned=${positioned != null}');
+            if (editState.mode != EditMode.move || positioned == null) return;
             final matrix = _transform.value;
             final inverse = Matrix4.identity()..copyInverse(matrix);
             final content = MatrixUtils.transformPoint(inverse, details.localPosition);
@@ -661,11 +1145,30 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
               }
             }
             if (_dragRoundIdx != null) {
-              _dragBaseAngle = positioned[_dragRoundIdx!][_dragStitchIdx!].angle
-                  - (positioned[_dragRoundIdx!][_dragStitchIdx!].stitch.angleOffset ?? 0);
+              final dragged = positioned[_dragRoundIdx!][_dragStitchIdx!];
+              _dragSides = sides;
+              _dragCornerRatio = cornerRatio;
+              // Unanchored stitches (first round, no connectsTo) are pinned to
+              // an absolute position on drag so they stay where the user drops
+              // them even when more stitches are added later. Anchored stitches
+              // use a relative offset from their anchor.
+              _dragPinned = dragged.stitch.connectsTo == null;
+              debugPrint('PANSTART grabbed ri=$_dragRoundIdx si=$_dragStitchIdx pinned=$_dragPinned angle=${dragged.angle}');
+              setState(() {
+                _selectedRoundIdx = _dragRoundIdx;
+                _selectedStitchIdx = _dragStitchIdx;
+              });
+              if (sides >= 3) {
+                final prevPerimOffset = dragged.stitch.perimeterOffset ?? 0;
+                _dragBasePerim = dragged.perimeterS - prevPerimOffset;
+              } else {
+                _dragBaseAngle = dragged.angle
+                    - (dragged.stitch.angleOffset ?? 0);
+              }
             }
           },
           onPanUpdate: (details) {
+            debugPrint('PANUPDATE dragRi=$_dragRoundIdx');
             if (_dragRoundIdx == null || _dragStitchIdx == null) return;
             final matrix = _transform.value;
             final inverse = Matrix4.identity()..copyInverse(matrix);
@@ -673,8 +1176,40 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
             final half = svgSize / 2;
             final dx = content.dx - half;
             final dy = content.dy - half;
-            final angle = atan2(dy, dx);
-            _setStitchAngleOffset(_dragRoundIdx!, _dragStitchIdx!, angle - _dragBaseAngle);
+            if (_dragSides >= 3) {
+              final dragged = positioned![_dragRoundIdx!][_dragStitchIdx!];
+              final r = dragged.radius;
+              final cr = pg.polygonCornerRadius(r, _dragSides, _dragCornerRatio);
+              final clickPerim =
+                  pg.polygonPerimeterFromDirection(r, _dragSides, cr, atan2(dy, dx));
+              if (_dragPinned) {
+                // Absolute pin: the click perimeter IS the new pinned position.
+                _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, clickPerim,
+                    polygonMode: true, pinned: true);
+              } else {
+                _maybeReanchorPolygon(clickPerim, positioned);
+                var delta = clickPerim - _dragBasePerim;
+                final perim = pg.polygonPerimeter(r, _dragSides, cr);
+                while (delta > perim / 2) {
+                  delta -= perim;
+                }
+                while (delta < -perim / 2) {
+                  delta += perim;
+                }
+                _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, delta,
+                    polygonMode: true, pinned: false);
+              }
+            } else {
+              final angle = atan2(dy, dx);
+              if (_dragPinned) {
+                _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle,
+                    polygonMode: false, pinned: true);
+              } else {
+                _maybeReanchorCircle(angle, positioned!);
+                _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle - _dragBaseAngle,
+                    polygonMode: false, pinned: false);
+              }
+            }
           },
           onPanEnd: (_) {
             _dragRoundIdx = null;
@@ -701,12 +1236,14 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
                     ringRadius: effectiveRingRadius,
                     roundStarts: roundStarts,
                     drawRing: false,
+                    sides: sides,
+                    cornerRatio: cornerRatio,
                   ),
                 ),
                 starterWidget ?? const SizedBox(),
                 if (positioned != null)
                   for (int ri = 0; ri < positioned.length; ri++)
-                    ..._buildRound(positioned[ri], ri, half, stitchNotifier, effectiveRingRadius, roundStarts),
+                    ..._buildRound(positioned[ri], ri, half, stitchNotifier, effectiveRingRadius, roundStarts, hoverRoundIdx: _hoverRoundIdx, hoverStitchIdx: _hoverStitchIdx, selectedRoundIdx: _selectedRoundIdx, selectedStitchIdx: _selectedStitchIdx),
 
                 // Hint text when empty
                 if (chart.starterStitchName == null)
@@ -760,15 +1297,18 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
                   ),
               ],
             ),
-          ),
+            ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  List<Widget> _buildRound(List<_PosStitch> round, int roundIndex, double half, StitchStoreNotifier notifier, double ringRadius, List<double> roundStarts) {
+  List<Widget> _buildRound(List<_PosStitch> round, int roundIndex, double half, StitchStoreNotifier notifier, double ringRadius, List<double> roundStarts, {int? hoverRoundIdx, int? hoverStitchIdx, int? selectedRoundIdx, int? selectedStitchIdx}) {
     final widgets = <Widget>[];
+    final inMoveHover = hoverRoundIdx != null && hoverStitchIdx != null;
+    final inSelected = selectedRoundIdx != null && selectedStitchIdx != null;
 
     int leadCh = round.isNotEmpty && round[0].stitch.kind == 'chain' ? 1 : 0;
 
@@ -780,9 +1320,11 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
       final totalSpan = first.radius - startR;
       final linkH = totalSpan / lc;
       final a = round[0].angle;
+      final leadHovered = inMoveHover && hoverRoundIdx == roundIndex && hoverStitchIdx == 0;
+      final leadSelected = inSelected && selectedRoundIdx == roundIndex && selectedStitchIdx == 0;
       for (int i = 0; i < lc; i++) {
         final r = startR + (i + 0.5) * linkH;
-        widgets.add(_chainSymbol(half + r * cos(a), half + r * sin(a), a, notifier, tangent: false));
+        widgets.add(_chainSymbol(half + r * cos(a), half + r * sin(a), a, notifier, tangent: false, hovered: leadHovered, selected: leadSelected));
       }
     }
 
@@ -790,18 +1332,20 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     for (int si = leadCh; si < round.length; si++) {
       final p = round[si];
       final s = p.stitch;
+      final hovered = inMoveHover && hoverRoundIdx == roundIndex && hoverStitchIdx == si;
+      final selected = inSelected && selectedRoundIdx == roundIndex && selectedStitchIdx == si;
       if (s.kind == 'slipStitch') {
-        widgets.add(_slipStitchSymbol(half + p.x, half + p.y, p.angle, s, notifier));
+        widgets.add(_slipStitchSymbol(half + p.x, half + p.y, p.angle, s, notifier, hovered: hovered, selected: selected));
       } else if (s.kind == 'chain') {
         final c = s.count ?? 1;
         final tx = -sin(p.angle);
         final ty = cos(p.angle);
         for (int i = 0; i < c; i++) {
           final off = (i - (c - 1) / 2) * fanStep;
-          widgets.add(_chainSymbol(half + p.x + tx * off, half + p.y + ty * off, p.angle, notifier));
+          widgets.add(_chainSymbol(half + p.x + tx * off, half + p.y + ty * off, p.angle, notifier, hovered: hovered, selected: selected));
         }
       } else {
-        widgets.add(_svgStitch(p, half, notifier));
+        widgets.add(_svgStitch(p, half, notifier, hovered: hovered, selected: selected));
       }
     }
     return widgets;
@@ -816,15 +1360,17 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
 
   double _chainLinkWidth(StitchStoreNotifier notifier) => _chainSymbolSize(notifier).$1 * 0.8;
 
-  Widget _slipStitchSymbol(double cx, double cy, double angle, PatternStitch stitch, StitchStoreNotifier notifier) {
+  Widget _slipStitchSymbol(double cx, double cy, double angle, PatternStitch stitch, StitchStoreNotifier notifier, {bool hovered = false, bool selected = false}) {
     final record = notifier.getStitch(stitch.name ?? 'sl st') ?? notifier.getStitch('sl st');
     if (record == null || record.svgContent.isEmpty) {
-      return _circle(cx, cy);
+      return _circle(cx, cy, hovered: hovered, selected: selected);
     }
     final dim = _svgDim(record.svgContent);
     final sw = dim.$1 * stitchScale;
     final sh = dim.$2 * stitchScale;
-    final svg = substituteColors(record.svgContent, '#333333', '#ffffff');
+    final svg = substituteColors(record.svgContent,
+        selected ? _selectedFg : (hovered ? _hoverFg : '#333333'),
+        selected ? _selectedBg : (hovered ? _hoverBg : '#ffffff'));
     return Positioned(
       left: cx - sw / 2,
       top: cy - sh / 2,
@@ -840,16 +1386,18 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     );
   }
 
-  Widget _chainSymbol(double cx, double cy, double angle, StitchStoreNotifier notifier, {bool tangent = true}) {
+  Widget _chainSymbol(double cx, double cy, double angle, StitchStoreNotifier notifier, {bool tangent = true, bool hovered = false, bool selected = false}) {
     final rot = tangent ? angle + pi / 2 : angle;
     final record = notifier.getStitch('ch');
     if (record == null || record.svgContent.isEmpty) {
-      return _chainLink(cx, cy, rot, 4.2);
+      return _chainLink(cx, cy, rot, 4.2, hovered: hovered, selected: selected);
     }
     final dim = _svgDim(record.svgContent);
     final sw = dim.$1 * stitchScale;
     final sh = dim.$2 * stitchScale;
-    final svg = substituteColors(record.svgContent, '#333333', '#ffffff');
+    final svg = substituteColors(record.svgContent,
+        selected ? _selectedFg : (hovered ? _hoverFg : '#333333'),
+        selected ? _selectedBg : (hovered ? _hoverBg : '#ffffff'));
     return Positioned(
       left: cx - sw / 2,
       top: cy - sh / 2,
@@ -865,9 +1413,14 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     );
   }
 
-  Widget _chainLink(double cx, double cy, double angle, double chainH) {
+  Widget _chainLink(double cx, double cy, double angle, double chainH, {bool hovered = false, bool selected = false}) {
     final linkW = chainH;
     final linkH = chainH * 0.7;
+    final color = selected
+        ? _selectedFgColor
+        : hovered
+            ? _hoverFgColor
+            : const Color(0xFF999999);
     return Positioned(
       left: cx - linkW / 2,
       top: cy - linkH / 2,
@@ -877,7 +1430,12 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
           width: linkW,
           height: linkH,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFF999999), width: 1.2),
+            border: Border.all(color: color, width: 1.2),
+            color: selected
+                ? _selectedBgColor
+                : hovered
+                    ? _hoverBgColor
+                    : null,
             borderRadius: BorderRadius.circular(linkW / 2),
           ),
         ),
@@ -885,27 +1443,35 @@ class _VisualChartViewState extends ConsumerState<VisualChartView> {
     );
   }
 
-  Widget _circle(double cx, double cy) {
+  Widget _circle(double cx, double cy, {bool hovered = false, bool selected = false}) {
+    final color = selected
+        ? _selectedFgColor
+        : hovered
+            ? _hoverFgColor
+            : const Color(0xFF666666);
     return Positioned(
       left: cx - 2.5,
       top: cy - 2.5,
-      child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFF666666), shape: BoxShape.circle)),
+      child: Container(width: 5, height: 5, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
     );
   }
 
-  Widget _svgStitch(_PosStitch p, double half, StitchStoreNotifier notifier) {
+  Widget _svgStitch(_PosStitch p, double half, StitchStoreNotifier notifier, {bool hovered = false, bool selected = false}) {
     final name = p.stitch.name ?? p.stitch.kind;
+    if (selected) debugPrint('SVGSTITCH selected name=$name x=${p.x.toStringAsFixed(1)} y=${p.y.toStringAsFixed(1)}');
     final record = notifier.getStitch(name);
     if (record == null || record.svgContent.isEmpty) {
       return Positioned(left: half + p.x - 6, top: half + p.y - 4, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 12, height: 8, decoration: BoxDecoration(color: const Color(0xFFDDDDDD), borderRadius: BorderRadius.circular(2), border: Border.all(color: const Color(0xFF999999), width: 0.5))),
+        Container(width: 12, height: 8, decoration: BoxDecoration(color: const Color(0xFFDDDDDD), borderRadius: BorderRadius.circular(2), border: Border.all(color: selected ? _selectedFgColor : (hovered ? _hoverFgColor : const Color(0xFF999999)), width: 0.5))),
         Text(name, style: const TextStyle(fontSize: 6, color: Color(0xFF999999))),
       ]));
     }
     final dim = _svgDim(record.svgContent);
     final sw = dim.$1 * stitchScale;
     final sh = dim.$2 * stitchScale;
-    final svg = substituteColors(record.svgContent, '#333333', '#ffffff');
+    final svg = substituteColors(record.svgContent,
+        selected ? _selectedFg : (hovered ? _hoverFg : '#333333'),
+        selected ? _selectedBg : (hovered ? _hoverBg : '#ffffff'));
     final ra = p.renderAngle ?? p.angle;
     final ax = p.x - (sh / 2) * cos(ra);
     final ay = p.y - (sh / 2) * sin(ra);
@@ -927,7 +1493,9 @@ class _GuidePainter extends CustomPainter {
   final double ringRadius;
   final List<double> roundStarts;
   final bool drawRing;
-  _GuidePainter({required this.rounds, required this.half, required this.ringRadius, required this.roundStarts, this.drawRing = true});
+  final int sides;
+  final double cornerRatio;
+  _GuidePainter({required this.rounds, required this.half, required this.ringRadius, required this.roundStarts, this.drawRing = true, this.sides = 0, this.cornerRatio = 0.15});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -939,6 +1507,7 @@ class _GuidePainter extends CustomPainter {
     guide.style = PaintingStyle.stroke;
     const dash = 3.0;
     const gap = 5.0;
+    final polygonMode = sides >= 3;
     int ri = 0;
     for (int i = 0; i < rounds.length; i++) {
       // Skip only rounds that contain nothing but magic-ring stitches; empty
@@ -947,8 +1516,16 @@ class _GuidePainter extends CustomPainter {
       if (magicOnly) continue;
       ri++;
       final r = roundStarts[ri];
-      final path = Path();
-      path.addOval(Rect.fromCircle(center: Offset.zero, radius: r));
+      final Path path;
+      final double labelY;
+      if (polygonMode) {
+        final cr = pg.polygonCornerRadius(r, sides, cornerRatio);
+        path = pg.polygonPath(r, sides, cr);
+        labelY = -pg.polygonApothem(r, sides) - 6;
+      } else {
+        path = Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: r));
+        labelY = -r - 6;
+      }
       final metric = path.computeMetrics().single;
       double dist = 0;
       while (dist < metric.length) {
@@ -958,7 +1535,7 @@ class _GuidePainter extends CustomPainter {
       }
       final tp = TextPainter(text: TextSpan(text: 'R${rounds[i].number}', style: const TextStyle(color: Color(0xFF999999), fontSize: 9)), textDirection: TextDirection.ltr);
       tp.layout();
-      tp.paint(canvas, Offset(-tp.width / 2, -r - 6 - tp.height));
+      tp.paint(canvas, Offset(-tp.width / 2, labelY - tp.height));
     }
     if (drawRing) {
       canvas.drawCircle(Offset.zero, ringRadius, Paint()..color = const Color(0xFF999999)..style = PaintingStyle.stroke..strokeWidth = 1.5);

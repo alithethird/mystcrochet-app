@@ -30,6 +30,12 @@ class AppToolbar extends ConsumerWidget {
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.stitch),
       ),
       _ToolButton(
+        icon: Icons.open_with,
+        label: 'Move',
+        selected: editState.mode == EditMode.move,
+        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.move),
+      ),
+      _ToolButton(
         icon: Icons.format_paint,
         label: 'Color',
         selected: editState.mode == EditMode.color,

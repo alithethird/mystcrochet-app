@@ -21,6 +21,17 @@ class PatternStitch {
   /// round always auto-aligns).
   final double? pinnedAngle;
 
+  /// Manual offset along the polygon perimeter (px), applied on top of the
+  /// computed perimeter position. Used for dragging stitches along a
+  /// polygonal round. Only read when the chart shape is a polygon.
+  final double? perimeterOffset;
+
+  /// Absolute perimeter arclength (px) at which this stitch sits on a
+  /// polygonal round, as chosen by the user tapping at a specific point. When
+  /// non-null, _layout uses this position directly. Only honored for polygon
+  /// shapes (circle uses pinnedAngle instead).
+  final double? pinnedPerimeter;
+
   PatternStitch({
     required this.kind,
     this.name,
@@ -30,6 +41,8 @@ class PatternStitch {
     this.connectsTo,
     this.angleOffset,
     this.pinnedAngle,
+    this.perimeterOffset,
+    this.pinnedPerimeter,
   });
 
   factory PatternStitch.fromJson(Map<String, dynamic> json) {
@@ -42,6 +55,8 @@ class PatternStitch {
       connectsTo: json['connectsTo'] as int?,
       angleOffset: (json['angleOffset'] as num?)?.toDouble(),
       pinnedAngle: (json['pinnedAngle'] as num?)?.toDouble(),
+      perimeterOffset: (json['perimeterOffset'] as num?)?.toDouble(),
+      pinnedPerimeter: (json['pinnedPerimeter'] as num?)?.toDouble(),
     );
   }
 
@@ -55,6 +70,8 @@ class PatternStitch {
       if (connectsTo != null) 'connectsTo': connectsTo,
       if (angleOffset != null) 'angleOffset': angleOffset,
       if (pinnedAngle != null) 'pinnedAngle': pinnedAngle,
+      if (perimeterOffset != null) 'perimeterOffset': perimeterOffset,
+      if (pinnedPerimeter != null) 'pinnedPerimeter': pinnedPerimeter,
     };
   }
 
@@ -67,6 +84,8 @@ class PatternStitch {
     int? connectsTo,
     double? angleOffset,
     double? pinnedAngle,
+    double? perimeterOffset,
+    double? pinnedPerimeter,
   }) {
     return PatternStitch(
       kind: kind ?? this.kind,
@@ -77,6 +96,8 @@ class PatternStitch {
       connectsTo: connectsTo ?? this.connectsTo,
       angleOffset: angleOffset ?? this.angleOffset,
       pinnedAngle: pinnedAngle ?? this.pinnedAngle,
+      perimeterOffset: perimeterOffset ?? this.perimeterOffset,
+      pinnedPerimeter: pinnedPerimeter ?? this.pinnedPerimeter,
     );
   }
 }
@@ -325,11 +346,18 @@ List<PatternStitch> expandStitches(List<PatternStitch> stitches) {
 
 /// Groups expanded stitches: stitches marked 'sameStitch' accumulate into the
 /// current group; everything else forms its own single-stitch group.
+///
+/// Chains ('chain') and slip stitches ('slipStitch') are never bundled into a
+/// sameStitch cluster even when the pattern text marks them as such — they
+/// always form their own standalone groups so they layout between the dc/regular
+/// anchor slots instead of being crammed into a cluster.
 List<List<PatternStitch>> groupStitches(List<PatternStitch> expanded) {
   final groups = <List<PatternStitch>>[];
   List<PatternStitch> cur = [];
   for (final s in expanded) {
-    if (s.modifiers?.contains('sameStitch') ?? false) {
+    final isSameStitch = (s.modifiers?.contains('sameStitch') ?? false);
+    final separable = s.kind == 'chain' || s.kind == 'slipStitch';
+    if (isSameStitch && !separable) {
       cur.add(s);
     } else {
       if (cur.isNotEmpty) {

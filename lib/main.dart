@@ -64,6 +64,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
   Widget build(BuildContext context) {
     final tabItems = [
       {'label': 'Properties', 'widget': const PropertiesPanel()},
+      {'label': 'Shape', 'widget': const ShapePanel()},
     ];
 
     return MaterialApp(

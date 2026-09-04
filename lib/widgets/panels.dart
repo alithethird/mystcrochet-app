@@ -152,3 +152,186 @@ class _PatternPanelState extends ConsumerState<PatternPanel> {
     );
   }
 }
+
+/// Approximate circumscribed radius (px) used when migrating per-stitch drag
+/// offsets across a shape switch (angleOffset ⇄ perimeterOffset conversion).
+/// Real per-round radius grows with stitch heights; we use a rough proxy
+/// faithful enough that drag offsets round-trip within a few pixels.
+double _approxRadiusForRound(int roundNumber) => 50 + 30.0 * (roundNumber - 1).clamp(0, 50).toDouble();
+
+class ShapePanel extends ConsumerStatefulWidget {
+  const ShapePanel({super.key});
+
+  @override
+  ConsumerState<ShapePanel> createState() => _ShapePanelState();
+}
+
+class _ShapePanelState extends ConsumerState<ShapePanel> {
+  late TextEditingController _cornerCtrl;
+  late FocusNode _cornerFocus;
+  String _lastCommitted = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final chart = ref.read(chartProvider).chart;
+    _lastCommitted = '${(chart.guidelines.visualCornerRatio * 100).round()}';
+    _cornerCtrl = TextEditingController(text: _lastCommitted);
+    _cornerFocus = FocusNode();
+    // Sync the text field if the chart's ratio changes elsewhere (e.g. via the
+    // slider, undo/redo) — but only while the field isn't being edited.
+    ref.listenManual(chartProvider, (prev, next) {
+      if (_cornerFocus.hasFocus) return;
+      final pct = '${(next.chart.guidelines.visualCornerRatio * 100).round()}';
+      if (_cornerCtrl.text != pct) {
+        _cornerCtrl.text = pct;
+        _lastCommitted = pct;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _cornerCtrl.dispose();
+    _cornerFocus.dispose();
+    super.dispose();
+  }
+
+  void _applyCornerRatio(String v) {
+    final raw = double.tryParse(v.trim());
+    if (raw == null) return;
+    final pct = raw.clamp(0.0, 45.0);
+    final ratio = pct / 100.0;
+    final chart = ref.read(chartProvider).chart;
+    if (ratio == chart.guidelines.visualCornerRatio) return;
+    final notifier = ref.read(chartProvider.notifier);
+    notifier.setChart(chart.copyWith(
+      guidelines: chart.guidelines.copyWith(visualCornerRatio: ratio),
+    ));
+  }
+
+  void _switchShape(int newSides) {
+    final chart = ref.read(chartProvider).chart;
+    final oldSides = chart.guidelines.visualShapeSides;
+    if (newSides == oldSides) return;
+
+    final fromPolygon = oldSides >= 3;
+    final toPolygon = newSides >= 3;
+
+    List<PatternRound> migrated = chart.patternRounds;
+    if (fromPolygon != toPolygon) {
+      migrated = chart.patternRounds.map((round) {
+        final r = _approxRadiusForRound(round.number);
+        return PatternRound(
+          number: round.number,
+          isMagicRing: round.isMagicRing,
+          stitches: round.stitches.map((s) {
+            if (toPolygon) {
+              // Circle -> polygon: convert drag offset (radians -> pixels).
+              final ao = s.angleOffset;
+              if (ao == null) return s;
+              return s.copyWith(perimeterOffset: ao * r);
+            } else {
+              // Polygon -> circle: convert drag offset (pixels -> radians).
+              final po = s.perimeterOffset;
+              if (po == null) return s;
+              return s.copyWith(angleOffset: po / r);
+            }
+          }).toList(),
+        );
+      }).toList();
+    }
+
+    final notifier = ref.read(chartProvider.notifier);
+    notifier.setChart(chart.copyWith(
+      patternRounds: assignConnections(migrated),
+      guidelines: chart.guidelines.copyWith(visualShapeSides: newSides),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chart = ref.watch(chartProvider).chart;
+    final sides = chart.guidelines.visualShapeSides;
+    final ratio = chart.guidelines.visualCornerRatio;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Round Shape',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<int>(
+          initialValue: sides,
+          decoration: const InputDecoration(
+            isDense: true,
+            labelText: 'Shape',
+            border: OutlineInputBorder(),
+          ),
+          items: [
+            const DropdownMenuItem(value: 0, child: Text('Circle')),
+            for (var n = 3; n <= 12; n++)
+              DropdownMenuItem(value: n, child: Text('$n sides')),
+          ],
+          onChanged: (v) => _switchShape(v ?? 0),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Text('Corner radius:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 60,
+              child: Focus(
+                focusNode: _cornerFocus,
+                child: TextField(
+                  controller: _cornerCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    suffixText: '%',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  ),
+                  style: const TextStyle(fontSize: 12),
+                  onSubmitted: (v) {
+                    _applyCornerRatio(v);
+                    _lastCommitted = _cornerCtrl.text;
+                    _cornerFocus.unfocus();
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Slider(
+                value: ratio,
+                min: 0,
+                max: 0.45,
+                divisions: 45,
+                label: '${(ratio * 100).round()}%',
+                onChanged: (v) {
+                  final notifier = ref.read(chartProvider.notifier);
+                  notifier.setChart(chart.copyWith(
+                    guidelines:
+                        chart.guidelines.copyWith(visualCornerRatio: v),
+                  ));
+                  _cornerCtrl.text = '${(v * 100).round()}';
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          sides == 0
+              ? 'Circles have no corner rounding. Pick 3-12 sides for a polygonal chart.'
+              : 'Rounds render as a $sides-sided polygon with ${ratio == 0 ? "sharp" : "rounded"} corners.',
+          style: const TextStyle(fontSize: 10, color: Color(0xFF999999)),
+        ),
+      ],
+    );
+  }
+}

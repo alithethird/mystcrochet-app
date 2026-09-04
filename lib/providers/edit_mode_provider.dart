@@ -9,6 +9,7 @@ enum EditMode {
   pan,
   visualPlace,
   visualSelect,
+  move,
 }
 
 class EditModeState {
