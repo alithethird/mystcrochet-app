@@ -89,7 +89,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                 onTextView: () => showDialog(
                   context: innerContext,
                   builder: (_) => ProviderScope(
-                    overrides: [],
+                    overrides: const [],
                     child: Builder(
                       builder: (ctx) => TextViewDialog(onClose: () => Navigator.pop(ctx)),
                     ),
@@ -107,8 +107,8 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                     Expanded(
                       child: Stack(
                         children: [
-                          Positioned.fill(
-                            child: const Padding(
+                          const Positioned.fill(
+                            child: Padding(
                               padding: EdgeInsets.all(4),
                               child: VisualChartView(),
                             ),

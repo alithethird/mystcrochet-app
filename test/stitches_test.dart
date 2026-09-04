@@ -103,5 +103,12 @@ void main() {
         expect(s.svgContent, isNotEmpty, reason: 'Stitch ${s.name} svgContent should not be empty');
       }
     });
+
+    test('All stitch names are unique (no duplicates)', () {
+      final names = stitches.map((s) => s.name).toList();
+      final uniqueNames = names.toSet();
+      expect(names.length, equals(uniqueNames.length),
+          reason: 'There should be no duplicate stitch names in stitches.json');
+    });
   });
 }

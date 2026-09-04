@@ -56,7 +56,7 @@ void main() {
       // path length now tracks the formula within ~5% (some slack for the
       // implicit closing segment and Flutter's float precision).
       for (final sides in [3, 4, 5, 6, 8, 12]) {
-        final r = 100.0;
+        const r = 100.0;
         final cr = pg.polygonCornerRadius(r, sides, 0.15);
         final path = pg.polygonPath(r, sides, cr);
         // Materialize metrics once — `computeMetrics()` returns a re-iterable
