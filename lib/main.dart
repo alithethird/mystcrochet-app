@@ -44,7 +44,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
     final styleEnum = GuidelinesType.fromValue(style);
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
-    notifier.setChart(chart.copyWith(
+    notifier.loadChart(chart.copyWith(
       name: 'Untitled',
       style: styleEnum,
       guidelines: chart.guidelines.copyWith(type: styleEnum),
@@ -60,7 +60,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
     final connected = assignConnections(rounds);
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
-    notifier.setChart(chart.copyWith(
+    notifier.loadChart(chart.copyWith(
       style: GuidelinesType.visual,
       guidelines: chart.guidelines.copyWith(type: GuidelinesType.visual),
       patternRounds: connected,
@@ -204,7 +204,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
       final result = await ChartFileService.openChart();
       if (result == null) return;
 
-      ref.read(chartProvider.notifier).setChart(result.chart);
+      ref.read(chartProvider.notifier).loadChart(result.chart);
 
       messenger.showSnackBar(
         SnackBar(

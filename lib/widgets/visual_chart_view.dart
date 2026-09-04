@@ -1011,6 +1011,16 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(chartProvider.select((s) => s.loadId), (prev, next) {
+      if (prev != null && prev != next) {
+        _transform.value = Matrix4.identity();
+        setState(() {
+          _selectedRoundIdx = null;
+          _selectedStitchIdx = null;
+        });
+      }
+    });
+
     final chartState = ref.watch(chartProvider);
     final editState = ref.watch(editModeProvider);
     final stitchNotifier = ref.watch(stitchStoreProvider);

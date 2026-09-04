@@ -51,8 +51,9 @@ abstract class ChartFileService {
     final result = await FilePicker.platform.pickFiles(
       dialogTitle: 'Open Crochet Chart',
       type: FileType.custom,
-      allowedExtensions: ['crochet', 'json'],
+      allowedExtensions: ['crochet', 'json', 'CROCHET', 'JSON'],
       withData: true,
+      withReadStream: true,
     );
 
     if (result == null || result.files.isEmpty) {
@@ -62,12 +63,24 @@ abstract class ChartFileService {
     final picked = result.files.first;
     Uint8List? bytes = picked.bytes;
 
+    if ((bytes == null || bytes.isEmpty) && picked.readStream != null) {
+      try {
+        final chunks = <int>[];
+        await for (final chunk in picked.readStream!) {
+          chunks.addAll(chunk);
+        }
+        if (chunks.isNotEmpty) {
+          bytes = Uint8List.fromList(chunks);
+        }
+      } catch (_) {}
+    }
+
     if ((bytes == null || bytes.isEmpty) && picked.path != null && picked.path!.isNotEmpty) {
       bytes = await readBytesPlatform(picked.path!);
     }
 
     if (bytes == null || bytes.isEmpty) {
-      return null;
+      throw FormatException('"${picked.name}" dosyası okunamadı veya dosya boş.');
     }
 
     final chart = parseChartBytes(bytes, fileName: picked.name);

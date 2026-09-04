@@ -25,15 +25,13 @@ Future<bool> saveChartPlatform(Uint8List bytes, String fileName) async {
       dialogTitle: 'Save Crochet Chart',
       fileName: fileName,
       type: FileType.custom,
-      allowedExtensions: ['crochet', 'json'],
+      allowedExtensions: ['crochet', 'json', 'CROCHET', 'JSON'],
       bytes: bytes,
     );
 
     if (outputFilePath != null && outputFilePath.isNotEmpty) {
       final file = File(outputFilePath);
-      if (!await file.exists() || (await file.length()) == 0) {
-        await file.writeAsBytes(bytes);
-      }
+      await file.writeAsBytes(bytes, flush: true);
       return true;
     }
     return false;
@@ -44,7 +42,7 @@ Future<bool> saveChartPlatform(Uint8List bytes, String fileName) async {
 
 Future<Uint8List?> readBytesPlatform(String path) async {
   try {
-    final file = File(path);
+    final file = File(path.trim());
     if (await file.exists()) {
       return await file.readAsBytes();
     }
