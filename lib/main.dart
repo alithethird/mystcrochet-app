@@ -198,6 +198,32 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
     );
   }
 
+  Future<void> _handleOpen(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final result = await ChartFileService.openChart();
+      if (result == null) return;
+
+      ref.read(chartProvider.notifier).setChart(result.chart);
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('${result.fileName} başarıyla açıldı.'),
+          backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Dosya açılamadı: ${e is FormatException ? e.message : "Geçersiz veya bozuk grafik dosyası."}',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tabItems = [
@@ -220,6 +246,10 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                 _handleSave(innerContext),
             const SingleActivator(LogicalKeyboardKey.keyS, meta: true): () =>
                 _handleSave(innerContext),
+            const SingleActivator(LogicalKeyboardKey.keyO, control: true): () =>
+                _handleOpen(innerContext),
+            const SingleActivator(LogicalKeyboardKey.keyO, meta: true): () =>
+                _handleOpen(innerContext),
           },
           child: Focus(
             autofocus: true,
@@ -231,7 +261,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                       context: innerContext,
                       builder: (_) => NewChartDialog(onCreated: _handleNew),
                     ),
-                    onOpen: () {},
+                    onOpen: () => _handleOpen(innerContext),
                     onSave: () => _handleSave(innerContext),
                     onTextView: () => showDialog(
                       context: innerContext,

@@ -6,7 +6,14 @@ String chartToJson(Chart chart) {
 }
 
 Chart chartFromJson(String jsonStr) {
-  final data = json.decode(jsonStr) as Map<String, dynamic>;
-  final envelope = data['chart'] as Map<String, dynamic>?;
-  return Chart.fromJson(envelope ?? data);
+  final dynamic decoded = json.decode(jsonStr);
+  if (decoded is! Map) {
+    throw const FormatException('Invalid chart format: Root element is not a JSON object.');
+  }
+  final map = Map<String, dynamic>.from(decoded);
+  final envelope = map['chart'];
+  if (envelope is Map) {
+    return Chart.fromJson(Map<String, dynamic>.from(envelope));
+  }
+  return Chart.fromJson(map);
 }

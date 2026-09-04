@@ -18,3 +18,8 @@ Future<bool> saveChartPlatform(Uint8List bytes, String fileName) async {
     return false;
   }
 }
+
+Future<Uint8List?> readBytesPlatform(String path) async {
+  return null;
+}
+

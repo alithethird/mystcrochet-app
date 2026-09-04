@@ -41,3 +41,14 @@ Future<bool> saveChartPlatform(Uint8List bytes, String fileName) async {
     return false;
   }
 }
+
+Future<Uint8List?> readBytesPlatform(String path) async {
+  try {
+    final file = File(path);
+    if (await file.exists()) {
+      return await file.readAsBytes();
+    }
+  } catch (_) {}
+  return null;
+}
+
