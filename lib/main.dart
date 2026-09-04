@@ -10,6 +10,7 @@ import 'widgets/visual_chart_view.dart';
 import 'widgets/panels.dart';
 import 'dialogs/new_chart_dialog.dart';
 import 'dialogs/text_view_dialog.dart';
+import 'widgets/build_version_badge.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -135,6 +136,11 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                                 ),
                               ),
                             ),
+                          ),
+                          const Positioned(
+                            bottom: 8,
+                            right: 8,
+                            child: BuildVersionBadge(),
                           ),
                         ],
                       ),
