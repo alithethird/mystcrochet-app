@@ -1,0 +1,13 @@
+services:
+  mystcrochet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mystcrochet-app:latest
+    container_name: mystcrochet-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      - ./build/web:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
