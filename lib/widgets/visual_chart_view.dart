@@ -121,8 +121,10 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
     // any later stitches line up correctly.
     final magicOnly = real.isEmpty && round.stitches.isNotEmpty;
     if (magicOnly) continue;
-    final spacing = _roundSpacing(round, notifier);
-    final radius = result.isEmpty ? ringRadius : (curR += spacing);
+    final spacing = _roundSpacing(round, notifier) + (round.radiusOffset ?? 0);
+    final radius = result.isEmpty
+        ? (ringRadius + (round.radiusOffset ?? 0))
+        : (curR += spacing);
     curR = radius;
     final cr = polygonMode
         ? pg.polygonCornerRadius(radius, sides, cornerRatio)
@@ -661,10 +663,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
         }
         stitches.insert(insertAt, newStitch);
       }
-      rounds[roundIdx] = PatternRound(
-        number: round.number,
+      rounds[roundIdx] = round.copyWith(
         stitches: stitches,
-        isMagicRing: round.isMagicRing,
       );
     } else {
       rounds.add(PatternRound(
@@ -683,6 +683,20 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final rounds = List<PatternRound>.from(chart.patternRounds);
     rounds.add(PatternRound(number: rounds.length + 1, stitches: []));
     notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
+  }
+
+  void _adjustRoundRadius(int roundIdx, double delta) {
+    final notifier = ref.read(chartProvider.notifier);
+    final chart = notifier.chart;
+    if (roundIdx < 0 || roundIdx >= chart.patternRounds.length) return;
+    final currentOffset = chart.patternRounds[roundIdx].radiusOffset ?? 0.0;
+    final newOffset = currentOffset + delta;
+    final updatedRounds = List<PatternRound>.from(chart.patternRounds);
+    updatedRounds[roundIdx] = updatedRounds[roundIdx].copyWith(
+      radiusOffset: newOffset == 0.0 ? null : newOffset,
+      clearRadiusOffset: newOffset == 0.0,
+    );
+    notifier.setChart(chart.copyWith(patternRounds: updatedRounds));
   }
 
   void _setStitchOffset(int positionedRi, int expandedSi, double value,
@@ -720,10 +734,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           if (rawIdx != -1) {
             sts[rawIdx] = updated;
           }
-          rounds[i] = PatternRound(
-            number: rounds[i].number,
+          rounds[i] = rounds[i].copyWith(
             stitches: sts,
-            isMagicRing: rounds[i].isMagicRing,
           );
           notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)), recordUndo: recordUndo);
           return;
@@ -755,10 +767,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           if (rawIdx != -1) {
             sts[rawIdx] = s.copyWith(connectsTo: anchor);
           }
-          rounds[i] = PatternRound(
-            number: rounds[i].number,
+          rounds[i] = rounds[i].copyWith(
             stitches: sts,
-            isMagicRing: rounds[i].isMagicRing,
           );
           notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)), recordUndo: recordUndo);
           return;
@@ -984,7 +994,10 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       // Match _layout: skip only magic-only rounds, reserve an entry for empty ones.
       final magicOnly = real.isEmpty && round.stitches.isNotEmpty;
       if (magicOnly) continue;
-      final next = firstRound ? roundStarts.last : roundStarts.last + _roundSpacing(round, stitchNotifier);
+      final spacing = _roundSpacing(round, stitchNotifier) + (round.radiusOffset ?? 0);
+      final next = firstRound
+          ? roundStarts.last + (round.radiusOffset ?? 0)
+          : roundStarts.last + spacing;
       roundStarts.add(next);
       firstRound = false;
     }
@@ -1028,7 +1041,10 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     return Container(
       key: _viewKey,
       color: Colors.white,
-      child: Listener(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Listener(
         onPointerDown: (event) {
           if (event.buttons == kPrimaryButton) {
             if (editState.mode == EditMode.move && positioned != null) {
@@ -1268,49 +1284,104 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                       child: Center(child: Text('Tap the center to place the starter', style: hintStyle, textAlign: TextAlign.center)),
                     ),
 
-                // Round indicator + New Round button
-                if (chart.starterStitchName != null)
-                  Positioned(
-                    left: 6,
-                    top: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFFDDDDDD)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('R${
-                              rounds.isEmpty ? 1 : rounds.length
-                          }  (${rounds.isEmpty ? 0 : rounds.last.stitches.length} sts)',
-                              style: const TextStyle(fontSize: 11)),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: rounds.isNotEmpty && rounds.last.stitches.isNotEmpty ? _newRound : null,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: rounds.isNotEmpty && rounds.last.stitches.isNotEmpty
-                                    ? const Color(0xFF3B82F6)
-                                    : const Color(0xFFCCCCCC),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: const Text('New Round', style: TextStyle(fontSize: 10, color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
             ),
             ),
           ),
         ),
+      ),
+    ),
+          if (chart.starterStitchName != null)
+            Positioned(
+              left: 6,
+              top: 6,
+              child: Builder(
+                builder: (context) {
+                  final activeIdx = (_selectedRoundIdx != null && _selectedRoundIdx! < rounds.length)
+                      ? _selectedRoundIdx!
+                      : (rounds.isNotEmpty ? rounds.length - 1 : 0);
+                  final activeRound = (rounds.isNotEmpty && activeIdx < rounds.length)
+                      ? rounds[activeIdx]
+                      : null;
+                  final currentOffset = activeRound?.radiusOffset ?? 0.0;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFFDDDDDD)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'R${activeRound != null ? activeRound.number : (rounds.isEmpty ? 1 : rounds.length)} (${activeRound != null ? activeRound.stitches.length : 0} sts)',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        if (activeRound != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            height: 12,
+                            width: 1,
+                            color: const Color(0xFFCCCCCC),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text('Size:', style: TextStyle(fontSize: 10, color: Color(0xFF666666))),
+                          const SizedBox(width: 4),
+                          InkWell(
+                            key: const ValueKey('canvas_contract_round_button'),
+                            onTap: () => _adjustRoundRadius(activeIdx, -5.0),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEEEEE),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: const Icon(Icons.remove, size: 12, color: Color(0xFF333333)),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              '${currentOffset > 0 ? '+' : ''}${currentOffset.round()}px',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          InkWell(
+                            key: const ValueKey('canvas_expand_round_button'),
+                            onTap: () => _adjustRoundRadius(activeIdx, 5.0),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEEEEE),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: const Icon(Icons.add, size: 12, color: Color(0xFF333333)),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 8),
+                        InkWell(
+                          onTap: rounds.isNotEmpty && rounds.last.stitches.isNotEmpty ? _newRound : null,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: rounds.isNotEmpty && rounds.last.stitches.isNotEmpty
+                                  ? const Color(0xFF3B82F6)
+                                  : const Color(0xFFCCCCCC),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Text('New Round', style: TextStyle(fontSize: 10, color: Colors.white)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
     );
   }

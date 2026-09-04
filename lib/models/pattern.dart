@@ -107,10 +107,15 @@ class PatternRound {
   final List<PatternStitch> stitches;
   final bool isMagicRing;
 
+  /// Manual radius offset in px (e.g. +10, -5). Expands or contracts this
+  /// round relative to its default spacing from the previous round.
+  final double? radiusOffset;
+
   PatternRound({
     required this.number,
     required this.stitches,
     this.isMagicRing = false,
+    this.radiusOffset,
   });
 
   factory PatternRound.fromJson(Map<String, dynamic> json) {
@@ -121,6 +126,7 @@ class PatternRound {
               .toList() ??
           [],
       isMagicRing: json['isMagicRing'] as bool? ?? false,
+      radiusOffset: (json['radiusOffset'] as num?)?.toDouble(),
     );
   }
 
@@ -129,7 +135,23 @@ class PatternRound {
       'number': number,
       'stitches': stitches.map((s) => s.toJson()).toList(),
       'isMagicRing': isMagicRing,
+      if (radiusOffset != null) 'radiusOffset': radiusOffset,
     };
+  }
+
+  PatternRound copyWith({
+    int? number,
+    List<PatternStitch>? stitches,
+    bool? isMagicRing,
+    double? radiusOffset,
+    bool clearRadiusOffset = false,
+  }) {
+    return PatternRound(
+      number: number ?? this.number,
+      stitches: stitches ?? this.stitches,
+      isMagicRing: isMagicRing ?? this.isMagicRing,
+      radiusOffset: clearRadiusOffset ? null : (radiusOffset ?? this.radiusOffset),
+    );
   }
 }
 

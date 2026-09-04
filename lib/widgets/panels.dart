@@ -76,6 +76,87 @@ class PropertiesPanel extends ConsumerWidget {
             Text('${(editState.zoom * 100).round()}%', style: const TextStyle(fontSize: 12)),
           ],
         ),
+        const Divider(height: 20),
+        const Text('Round Expansion / Spacing:',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        if (chart.patternRounds.isEmpty)
+          const Text('No rounds in chart',
+              style: TextStyle(fontSize: 11, color: Colors.grey))
+        else
+          ...chart.patternRounds.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final round = entry.value;
+            final offset = round.radiusOffset ?? 0.0;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 65,
+                    child: Text('Round ${round.number}:',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  ),
+                  IconButton(
+                    key: ValueKey('prop_contract_round_${round.number}'),
+                    icon: const Icon(Icons.remove, size: 14),
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    padding: EdgeInsets.zero,
+                    tooltip: 'Contract round',
+                    onPressed: () {
+                      final notifier = ref.read(chartProvider.notifier);
+                      final rounds = List<PatternRound>.from(chart.patternRounds);
+                      final newOffset = offset - 5.0;
+                      rounds[idx] = rounds[idx].copyWith(
+                        radiusOffset: newOffset == 0.0 ? null : newOffset,
+                        clearRadiusOffset: newOffset == 0.0,
+                      );
+                      notifier.setChart(chart.copyWith(patternRounds: rounds));
+                    },
+                  ),
+                  SizedBox(
+                    width: 48,
+                    child: Text(
+                      '${offset > 0 ? '+' : ''}${offset.round()} px',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  IconButton(
+                    key: ValueKey('prop_expand_round_${round.number}'),
+                    icon: const Icon(Icons.add, size: 14),
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    padding: EdgeInsets.zero,
+                    tooltip: 'Expand round',
+                    onPressed: () {
+                      final notifier = ref.read(chartProvider.notifier);
+                      final rounds = List<PatternRound>.from(chart.patternRounds);
+                      final newOffset = offset + 5.0;
+                      rounds[idx] = rounds[idx].copyWith(
+                        radiusOffset: newOffset == 0.0 ? null : newOffset,
+                        clearRadiusOffset: newOffset == 0.0,
+                      );
+                      notifier.setChart(chart.copyWith(patternRounds: rounds));
+                    },
+                  ),
+                  if (offset != 0.0)
+                    IconButton(
+                      key: ValueKey('prop_reset_round_${round.number}'),
+                      icon: const Icon(Icons.refresh, size: 14),
+                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                      padding: EdgeInsets.zero,
+                      tooltip: 'Reset to default',
+                      onPressed: () {
+                        final notifier = ref.read(chartProvider.notifier);
+                        final rounds = List<PatternRound>.from(chart.patternRounds);
+                        rounds[idx] = rounds[idx].copyWith(clearRadiusOffset: true);
+                        notifier.setChart(chart.copyWith(patternRounds: rounds));
+                      },
+                    ),
+                ],
+              ),
+            );
+          }),
       ],
     );
   }
@@ -225,6 +306,7 @@ class _ShapePanelState extends ConsumerState<ShapePanel> {
         return PatternRound(
           number: round.number,
           isMagicRing: round.isMagicRing,
+          radiusOffset: round.radiusOffset,
           stitches: round.stitches.map((s) {
             if (toPolygon) {
               // Circle -> polygon: convert drag offset (radians -> pixels).
