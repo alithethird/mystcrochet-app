@@ -58,6 +58,10 @@ class StitchStore {
     _activeCategory = v;
   }
 
+  void setStitches(List<StitchRecord> stitches) {
+    _all = stitches;
+  }
+
   void setActiveStitchName(String? v) {
     _activeStitchName = v;
   }
@@ -90,6 +94,11 @@ class StitchStoreNotifier extends ChangeNotifier {
 
   void setActiveCategory(String? v) {
     _store.setActiveCategory(v);
+    notifyListeners();
+  }
+
+  void setStitches(List<StitchRecord> stitches) {
+    _store.setStitches(stitches);
     notifyListeners();
   }
 

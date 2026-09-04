@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../providers/edit_mode_provider.dart';
 import '../providers/stitch_provider.dart';
 import '../utils/svg.dart';
 
@@ -133,9 +134,14 @@ class StitchPalette extends ConsumerWidget {
                   ),
                   title:
                       Text(stitch.name, style: const TextStyle(fontSize: 12)),
-                  onTap: () => ref
-                      .read(stitchStoreProvider.notifier)
-                      .setActiveStitchName(stitch.name),
+                  onTap: () {
+                    ref
+                        .read(stitchStoreProvider.notifier)
+                        .setActiveStitchName(stitch.name);
+                    ref
+                        .read(editModeProvider.notifier)
+                        .setMode(EditMode.stitch);
+                  },
                 ),
                 );
               },
