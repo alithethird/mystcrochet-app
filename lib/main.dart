@@ -200,11 +200,17 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
 
   Future<void> _handleOpen(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    debugPrint('[OPEN_CHART] Kullanıcı dosya açma işlemini başlattı.');
     try {
       final result = await ChartFileService.openChart();
-      if (result == null) return;
+      if (result == null) {
+        debugPrint('[OPEN_CHART] Dosya seçilmedi veya iptal edildi.');
+        return;
+      }
+      debugPrint('[OPEN_CHART] Dosya okundu: ${result.fileName}, tur sayısı: ${result.chart.patternRounds.length}, başlangıç: ${result.chart.starterStitchName}');
 
       ref.read(chartProvider.notifier).loadChart(result.chart);
+      debugPrint('[OPEN_CHART] Grafik başarıyla yüklendi ve tuval kamerasını sıfırladı.');
 
       messenger.showSnackBar(
         SnackBar(
@@ -212,7 +218,8 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
           backgroundColor: const Color(0xFF16A34A),
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[OPEN_CHART] HATA: $e\n$st');
       messenger.showSnackBar(
         SnackBar(
           content: Text(

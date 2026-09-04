@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:file_picker/file_picker.dart';
 import '../models/chart.dart';
 import '../utils/serialization.dart';
 import 'chart_file_service_stub.dart'
     if (dart.library.html) 'chart_file_service_web.dart'
     if (dart.library.io) 'chart_file_service_io.dart';
+export 'platform_file_data.dart';
 
 class ChartLoadResult {
   final Chart chart;
@@ -69,39 +69,12 @@ abstract class ChartFileService {
   /// Picks and loads a chart file (.crochet or .json) from the user's system.
   /// Returns [ChartLoadResult] or null if cancelled.
   static Future<ChartLoadResult?> openChart() async {
-    FilePickerResult? result;
-    try {
-      result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Grafik Aç / İçe Aktar',
-        type: FileType.any,
-        withData: true,
-      );
-    } catch (_) {
-      // Fallback in case platform requires custom
-      result = await FilePicker.platform.pickFiles(
-        dialogTitle: 'Grafik Aç / İçe Aktar',
-        type: FileType.custom,
-        allowedExtensions: ['crochet', 'json'],
-        withData: true,
-      );
-    }
-
-    if (result == null || result.files.isEmpty) {
+    final fileData = await pickAndReadChartPlatform();
+    if (fileData == null) {
       return null;
     }
 
-    final picked = result.files.first;
-    Uint8List? bytes = picked.bytes;
-
-    if ((bytes == null || bytes.isEmpty) && picked.path != null && picked.path!.isNotEmpty) {
-      bytes = await readBytesPlatform(picked.path!);
-    }
-
-    if (bytes == null || bytes.isEmpty) {
-      throw FormatException('"${picked.name}" dosyası okunamadı veya dosya boş.');
-    }
-
-    final chart = parseChartBytes(bytes, fileName: picked.name);
-    return ChartLoadResult(chart: chart, fileName: picked.name);
+    final chart = parseChartBytes(fileData.bytes, fileName: fileData.fileName);
+    return ChartLoadResult(chart: chart, fileName: fileData.fileName);
   }
 }
