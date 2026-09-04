@@ -80,4 +80,87 @@ void main() {
     expect(container.read(editModeProvider).mode, equals(EditMode.stitch));
     expect(container.read(stitchStoreProvider).activeStitchName, equals('single crochet'));
   });
+
+  testWidgets('Clear button next to search box clears query and restores stitch list',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final notifier = StitchStoreNotifier();
+    notifier.setStitches([
+      StitchRecord(
+        name: 'single crochet',
+        description: 'Single crochet stitch',
+        category: ['Basic'],
+        wrongSide: '',
+        svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+      ),
+      StitchRecord(
+        name: 'double crochet',
+        description: 'Double crochet stitch',
+        category: ['Basic'],
+        wrongSide: '',
+        svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+      ),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        stitchStoreProvider.overrideWith((ref) => notifier),
+      ],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: StitchPalette(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Both stitches initially visible
+    expect(find.text('single crochet'), findsOneWidget);
+    expect(find.text('double crochet'), findsOneWidget);
+
+    // Clear button should initially be disabled (null onPressed)
+    final clearButtonFinder = find.byKey(const ValueKey('clear_search_button'));
+    expect(clearButtonFinder, findsOneWidget);
+    final IconButton initialButton = tester.widget(clearButtonFinder);
+    expect(initialButton.onPressed, isNull);
+
+    // Enter search text "double"
+    await tester.enterText(find.byType(TextField), 'double');
+    await tester.pump();
+
+    // Only 'double crochet' visible
+    expect(find.text('single crochet'), findsNothing);
+    expect(find.text('double crochet'), findsOneWidget);
+    expect(container.read(stitchStoreProvider).store.searchText, equals('double'));
+
+    // Clear button should now be enabled
+    final IconButton enabledButton = tester.widget(clearButtonFinder);
+    expect(enabledButton.onPressed, isNotNull);
+
+    // Tap clear button
+    await tester.tap(clearButtonFinder);
+    await tester.pump();
+
+    // Search query cleared and both stitches visible again
+    expect(container.read(stitchStoreProvider).store.searchText, equals(''));
+    final TextField textField = tester.widget(find.byType(TextField));
+    expect(textField.controller?.text, equals(''));
+    expect(find.text('single crochet'), findsOneWidget);
+    expect(find.text('double crochet'), findsOneWidget);
+
+    // Clear button should be disabled again
+    final IconButton finalButton = tester.widget(clearButtonFinder);
+    expect(finalButton.onPressed, isNull);
+  });
 }
+

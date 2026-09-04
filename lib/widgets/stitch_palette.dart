@@ -5,15 +5,45 @@ import '../providers/edit_mode_provider.dart';
 import '../providers/stitch_provider.dart';
 import '../utils/svg.dart';
 
-class StitchPalette extends ConsumerWidget {
+class StitchPalette extends ConsumerStatefulWidget {
   final VoidCallback? onClose;
 
   const StitchPalette({super.key, this.onClose});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StitchPalette> createState() => _StitchPaletteState();
+}
+
+class _StitchPaletteState extends ConsumerState<StitchPalette> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(
+      text: ref.read(stitchStoreProvider).store.searchText,
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    ref.read(stitchStoreProvider.notifier).setSearchText('');
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final stitchNotifier = ref.watch(stitchStoreProvider);
     final store = stitchNotifier.store;
+    if (store.searchText.isEmpty && _searchController.text.isNotEmpty) {
+      _searchController.text = '';
+    }
     final stitches = store.filtered;
     final categories = store.categories;
     final activeCategory = store.activeCategory;
@@ -38,10 +68,10 @@ class StitchPalette extends ConsumerWidget {
                     style:
                         TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const Spacer(),
-                if (onClose != null)
+                if (widget.onClose != null)
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                     constraints:
                         const BoxConstraints(minWidth: 28, minHeight: 28),
                   ),
@@ -83,7 +113,7 @@ class StitchPalette extends ConsumerWidget {
                     ),
                   ),
                   child: IconButton(
-                    onPressed: onClose,
+                    onPressed: widget.onClose,
                     alignment: Alignment.center,
                     padding: EdgeInsets.zero,
                     constraints:
@@ -96,17 +126,39 @@ class StitchPalette extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Search...',
-                isDense: true,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                border: OutlineInputBorder(),
-              ),
-              style: const TextStyle(fontSize: 12),
-              onChanged: (v) =>
-                  ref.read(stitchStoreProvider.notifier).setSearchText(v),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Search...',
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      border: OutlineInputBorder(),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                    onChanged: (v) {
+                      setState(() {});
+                      ref.read(stitchStoreProvider.notifier).setSearchText(v);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  key: const ValueKey('clear_search_button'),
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: 'Clear search',
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: EdgeInsets.zero,
+                  onPressed: (_searchController.text.isNotEmpty ||
+                          store.searchText.isNotEmpty)
+                      ? _clearSearch
+                      : null,
+                ),
+              ],
             ),
           ),
           Expanded(

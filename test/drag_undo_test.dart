@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +5,6 @@ import 'package:crochet_charts/models/chart.dart';
 import 'package:crochet_charts/models/pattern.dart';
 import 'package:crochet_charts/providers/chart_provider.dart';
 import 'package:crochet_charts/providers/edit_mode_provider.dart';
-import 'package:crochet_charts/providers/stitch_provider.dart';
 import 'package:crochet_charts/widgets/visual_chart_view.dart';
 
 void main() {
