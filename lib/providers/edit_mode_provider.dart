@@ -11,6 +11,7 @@ enum EditMode {
   visualSelect,
   move,
   delete,
+  replace,
 }
 
 class EditModeState {
@@ -18,12 +19,22 @@ class EditModeState {
   final double zoom;
   final String paintColor;
   final String paintTarget; // 'fg' or 'bg'
+  final bool bulkReplace;
+  final int? replaceRoundIdx;
+  final int? replaceStitchIdx;
+  final String? replaceStitchName;
+  final int? replaceMatchCount;
 
   EditModeState({
     this.mode = EditMode.stitch,
     this.zoom = 1.0,
     this.paintColor = '#000000',
     this.paintTarget = 'fg',
+    this.bulkReplace = false,
+    this.replaceRoundIdx,
+    this.replaceStitchIdx,
+    this.replaceStitchName,
+    this.replaceMatchCount,
   });
 
   EditModeState copyWith({
@@ -31,12 +42,23 @@ class EditModeState {
     double? zoom,
     String? paintColor,
     String? paintTarget,
+    bool? bulkReplace,
+    int? replaceRoundIdx,
+    int? replaceStitchIdx,
+    String? replaceStitchName,
+    int? replaceMatchCount,
+    bool clearReplaceTarget = false,
   }) {
     return EditModeState(
       mode: mode ?? this.mode,
       zoom: zoom ?? this.zoom,
       paintColor: paintColor ?? this.paintColor,
       paintTarget: paintTarget ?? this.paintTarget,
+      bulkReplace: bulkReplace ?? this.bulkReplace,
+      replaceRoundIdx: clearReplaceTarget ? null : (replaceRoundIdx ?? this.replaceRoundIdx),
+      replaceStitchIdx: clearReplaceTarget ? null : (replaceStitchIdx ?? this.replaceStitchIdx),
+      replaceStitchName: clearReplaceTarget ? null : (replaceStitchName ?? this.replaceStitchName),
+      replaceMatchCount: clearReplaceTarget ? null : (replaceMatchCount ?? this.replaceMatchCount),
     );
   }
 }
@@ -45,7 +67,11 @@ class EditModeNotifier extends StateNotifier<EditModeState> {
   EditModeNotifier() : super(EditModeState());
 
   void setMode(EditMode mode) {
-    state = state.copyWith(mode: mode);
+    if (mode != EditMode.replace) {
+      state = state.copyWith(mode: mode, clearReplaceTarget: true);
+    } else {
+      state = state.copyWith(mode: mode);
+    }
   }
 
   void setZoom(double zoom) {
@@ -58,6 +84,28 @@ class EditModeNotifier extends StateNotifier<EditModeState> {
 
   void setPaintTarget(String target) {
     state = state.copyWith(paintTarget: target);
+  }
+
+  void setBulkReplace(bool bulk) {
+    state = state.copyWith(bulkReplace: bulk);
+  }
+
+  void setReplaceTarget({
+    required int roundIdx,
+    required int stitchIdx,
+    required String stitchName,
+    int? matchCount,
+  }) {
+    state = state.copyWith(
+      replaceRoundIdx: roundIdx,
+      replaceStitchIdx: stitchIdx,
+      replaceStitchName: stitchName,
+      replaceMatchCount: matchCount,
+    );
+  }
+
+  void clearReplaceTarget() {
+    state = state.copyWith(clearReplaceTarget: true);
   }
 }
 

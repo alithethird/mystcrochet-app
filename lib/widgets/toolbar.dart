@@ -38,6 +38,12 @@ class AppToolbar extends ConsumerWidget {
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.move),
       ),
       _ToolButton(
+        icon: Icons.swap_horiz,
+        label: 'Değiştir',
+        selected: editState.mode == EditMode.replace,
+        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.replace),
+      ),
+      _ToolButton(
         icon: Icons.delete_outline,
         label: 'Sil',
         selected: editState.mode == EditMode.delete,

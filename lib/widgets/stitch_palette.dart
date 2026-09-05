@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
 import '../providers/stitch_provider.dart';
+import '../services/stitch_replace_service.dart';
 import '../utils/svg.dart';
 
 class StitchPalette extends ConsumerStatefulWidget {
@@ -187,6 +189,50 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                   title:
                       Text(stitch.name, style: const TextStyle(fontSize: 12)),
                   onTap: () {
+                    final editState = ref.read(editModeProvider);
+                    if (editState.mode == EditMode.replace) {
+                      if (editState.replaceStitchName == null) {
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Lütfen önce grafikten değiştirmek istediğiniz ilmeğe dokunun.'),
+                            backgroundColor: Color(0xFFD97706),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final chartNotifier = ref.read(chartProvider.notifier);
+                      final currentChart = chartNotifier.chart;
+                      final result = replaceStitches(
+                        chart: currentChart,
+                        newStitchName: stitch.name,
+                        bulk: editState.bulkReplace,
+                        targetVisualRoundIdx: editState.replaceRoundIdx,
+                        targetExpandedStitchIdx: editState.replaceStitchIdx,
+                        targetStitchName: editState.replaceStitchName,
+                      );
+
+                      if (result.replacedCount > 0) {
+                        chartNotifier.setChart(result.updatedChart, recordUndo: true);
+                        ref.read(editModeProvider.notifier).clearReplaceTarget();
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              editState.bulkReplace
+                                  ? '${result.replacedCount} adet ilmek "${stitch.name}" ile değiştirildi.'
+                                  : 'İlmek "${stitch.name}" ile değiştirildi.',
+                            ),
+                            backgroundColor: const Color(0xFF16A34A),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
                     ref
                         .read(stitchStoreProvider.notifier)
                         .setActiveStitchName(stitch.name);

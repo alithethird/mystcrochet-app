@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models/guidelines.dart';
 import 'models/pattern.dart';
 import 'providers/chart_provider.dart';
+import 'providers/edit_mode_provider.dart';
 import 'providers/stitch_provider.dart';
 import 'widgets/toolbar.dart';
 import 'widgets/stitch_palette.dart';
@@ -233,6 +234,12 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<EditModeState>(editModeProvider, (previous, next) {
+      if (next.mode == EditMode.replace && !_leftOpen) {
+        setState(() => _leftOpen = true);
+      }
+    });
+
     final tabItems = [
       {'label': 'Özellikler', 'widget': const PropertiesPanel()},
       {'label': 'Şekil', 'widget': const ShapePanel()},
