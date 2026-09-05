@@ -94,6 +94,7 @@ class Chart {
     List<VisualStitch>? visualStitches,
     List<PatternRound>? patternRounds,
     String? starterStitchName,
+    bool clearStarterStitch = false,
   }) {
     return Chart(
       name: name ?? this.name,
@@ -105,7 +106,7 @@ class Chart {
       groups: groups ?? this.groups,
       visualStitches: visualStitches ?? this.visualStitches,
       patternRounds: patternRounds ?? this.patternRounds,
-      starterStitchName: starterStitchName ?? this.starterStitchName,
+      starterStitchName: clearStarterStitch ? null : (starterStitchName ?? this.starterStitchName),
     );
   }
 }

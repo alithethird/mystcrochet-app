@@ -25,6 +25,11 @@ const _selectedBg = '#BFDBFE';
 const _selectedFgColor = Color(0xFF2563EB);
 const _selectedBgColor = Color(0xFFBFDBFE);
 
+const _deleteHoverFg = '#DC2626';
+const _deleteHoverBg = '#FECACA';
+const _deleteHoverFgColor = Color(0xFFDC2626);
+const _deleteHoverBgColor = Color(0xFFFECACA);
+
 class PosStitch {
   final double x, y, angle, radius;
   final PatternStitch stitch;
@@ -756,6 +761,106 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     notifier.setChart(chart.copyWith(patternRounds: updatedRounds));
   }
 
+  void _deleteStitchAt(Offset content, double svgSize, List<List<_PosStitch>>? positioned) {
+    final half = svgSize / 2;
+    if (positioned != null) {
+      double bestDist = 28.0;
+      int? hitRi;
+      int? hitSi;
+      for (int ri = 0; ri < positioned.length; ri++) {
+        for (int si = 0; si < positioned[ri].length; si++) {
+          final p = positioned[ri][si];
+          final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) +
+              (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
+          if (d < bestDist) {
+            bestDist = d;
+            hitRi = ri;
+            hitSi = si;
+          }
+        }
+      }
+      if (hitRi != null && hitSi != null) {
+        debugPrint('[DELETE_STITCH] ri=$hitRi si=$hitSi');
+        _deleteStitch(hitRi, hitSi);
+        return;
+      }
+    }
+
+    // Check if starter stitch in center was tapped
+    final notifier = ref.read(chartProvider.notifier);
+    final chart = notifier.chart;
+    if (chart.starterStitchName != null) {
+      final centerDist = sqrt((content.dx - half) * (content.dx - half) +
+          (content.dy - half) * (content.dy - half));
+      if (centerDist < 28.0) {
+        final hasStitches = chart.patternRounds.any(
+            (r) => r.stitches.any((s) => s.kind != 'magicRing'));
+        if (!hasStitches) {
+          debugPrint('[DELETE_STITCH] clearing starter stitch');
+          notifier.setChart(
+            chart.copyWith(starterStitchName: null, clearStarterStitch: true, patternRounds: []),
+            recordUndo: true,
+          );
+          setState(() {
+            _hoverRoundIdx = null;
+            _hoverStitchIdx = null;
+            _selectedRoundIdx = null;
+            _selectedStitchIdx = null;
+          });
+        }
+      }
+    }
+  }
+
+  void _deleteStitch(int positionedRi, int expandedSi) {
+    final notifier = ref.read(chartProvider.notifier);
+    final chart = notifier.chart;
+    final rounds = List<PatternRound>.from(chart.patternRounds);
+    final int? chartRi = _visualToChartRound[positionedRi];
+    if (chartRi == null || chartRi < 0 || chartRi >= rounds.length) return;
+
+    final real = rounds[chartRi].stitches.where((s) => s.kind != 'magicRing').toList();
+    int expCount = 0;
+    for (int j = 0; j < real.length; j++) {
+      final s = real[j];
+      final c = s.kind == 'stitch' ? (s.count ?? 1) : 1;
+      if (expCount + c > expandedSi) {
+        final sts = List<PatternStitch>.from(rounds[chartRi].stitches);
+        final rawIdx = sts.indexOf(s);
+        if (rawIdx != -1) {
+          if (c > 1) {
+            sts[rawIdx] = s.copyWith(count: c - 1);
+          } else {
+            sts.removeAt(rawIdx);
+          }
+        }
+        rounds[chartRi] = rounds[chartRi].copyWith(stitches: sts);
+
+        // Trim trailing empty rounds if any
+        while (rounds.length > 1 && rounds.last.stitches.isEmpty) {
+          rounds.removeLast();
+        }
+
+        final connected = assignConnections(rounds);
+        notifier.setChart(chart.copyWith(patternRounds: connected), recordUndo: true);
+        setState(() {
+          _hoverRoundIdx = null;
+          _hoverStitchIdx = null;
+          _selectedRoundIdx = null;
+          _selectedStitchIdx = null;
+        });
+        return;
+      }
+      expCount += c;
+    }
+  }
+
+  void deleteSelectedStitch() {
+    if (_selectedRoundIdx != null && _selectedStitchIdx != null) {
+      _deleteStitch(_selectedRoundIdx!, _selectedStitchIdx!);
+    }
+  }
+
   void _setStitchOffset(int positionedRi, int expandedSi, double value,
       {required bool polygonMode, required bool pinned, bool recordUndo = true}) {
     final notifier = ref.read(chartProvider.notifier);
@@ -1155,12 +1260,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           }
         },
         child: MouseRegion(
-          cursor: editState.mode == EditMode.move
+          cursor: (editState.mode == EditMode.move || editState.mode == EditMode.delete)
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
           onHover: (event) {
             if (_dragRoundIdx != null) return;
-            if (editState.mode != EditMode.move || positioned == null) {
+            if ((editState.mode != EditMode.move && editState.mode != EditMode.delete) || positioned == null) {
               if (_hoverRoundIdx != null || _hoverStitchIdx != null) {
                 setState(() {
                   _hoverRoundIdx = null;
@@ -1206,8 +1311,11 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             final matrix = _transform.value;
             final inverse = Matrix4.identity()..copyInverse(matrix);
             final content = MatrixUtils.transformPoint(inverse, details.localPosition);
-            if (editState.mode != EditMode.stitch) return;
-            _placeStitch(content, svgSize, positioned, sides: sides, cornerRatio: cornerRatio);
+            if (editState.mode == EditMode.stitch) {
+              _placeStitch(content, svgSize, positioned, sides: sides, cornerRatio: cornerRatio);
+            } else if (editState.mode == EditMode.delete) {
+              _deleteStitchAt(content, svgSize, positioned);
+            }
           },
           onPanStart: (details) {
             debugPrint('PANSTART mode=${editState.mode} positioned=${positioned != null}');
@@ -1342,6 +1450,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                           hoverStitchIdx: _isExporting ? null : _hoverStitchIdx,
                           selectedRoundIdx: _isExporting ? null : _selectedRoundIdx,
                           selectedStitchIdx: _isExporting ? null : _selectedStitchIdx,
+                          isDeleteMode: editState.mode == EditMode.delete,
                         ),
 
                     // Hint text when empty (omitted during export)
@@ -1462,7 +1571,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     );
   }
 
-  List<Widget> _buildRound(List<_PosStitch> round, int roundIndex, double half, StitchStoreNotifier notifier, double ringRadius, List<double> roundStarts, {int? hoverRoundIdx, int? hoverStitchIdx, int? selectedRoundIdx, int? selectedStitchIdx}) {
+  List<Widget> _buildRound(List<_PosStitch> round, int roundIndex, double half, StitchStoreNotifier notifier, double ringRadius, List<double> roundStarts, {int? hoverRoundIdx, int? hoverStitchIdx, int? selectedRoundIdx, int? selectedStitchIdx, bool isDeleteMode = false}) {
     final widgets = <Widget>[];
     final inMoveHover = hoverRoundIdx != null && hoverStitchIdx != null;
     final inSelected = selectedRoundIdx != null && selectedStitchIdx != null;
@@ -1481,7 +1590,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       final leadSelected = inSelected && selectedRoundIdx == roundIndex && selectedStitchIdx == 0;
       for (int i = 0; i < lc; i++) {
         final r = startR + (i + 0.5) * linkH;
-        widgets.add(_chainSymbol(half + r * cos(a), half + r * sin(a), a, notifier, tangent: false, hovered: leadHovered, selected: leadSelected));
+        widgets.add(_chainSymbol(half + r * cos(a), half + r * sin(a), a, notifier, tangent: false, hovered: leadHovered, selected: leadSelected, isDelete: isDeleteMode));
       }
     }
 
@@ -1492,17 +1601,17 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       final hovered = inMoveHover && hoverRoundIdx == roundIndex && hoverStitchIdx == si;
       final selected = inSelected && selectedRoundIdx == roundIndex && selectedStitchIdx == si;
       if (s.kind == 'slipStitch') {
-        widgets.add(_slipStitchSymbol(half + p.x, half + p.y, p.angle, s, notifier, hovered: hovered, selected: selected));
+        widgets.add(_slipStitchSymbol(half + p.x, half + p.y, p.angle, s, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode));
       } else if (s.kind == 'chain') {
         final c = s.count ?? 1;
         final tx = -sin(p.angle);
         final ty = cos(p.angle);
         for (int i = 0; i < c; i++) {
           final off = (i - (c - 1) / 2) * fanStep;
-          widgets.add(_chainSymbol(half + p.x + tx * off, half + p.y + ty * off, p.angle, notifier, hovered: hovered, selected: selected));
+          widgets.add(_chainSymbol(half + p.x + tx * off, half + p.y + ty * off, p.angle, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode));
         }
       } else {
-        widgets.add(_svgStitch(p, half, notifier, hovered: hovered, selected: selected));
+        widgets.add(_svgStitch(p, half, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode));
       }
     }
     return widgets;
@@ -1517,17 +1626,19 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
 
   double _chainLinkWidth(StitchStoreNotifier notifier) => _chainSymbolSize(notifier).$1 * 0.8;
 
-  Widget _slipStitchSymbol(double cx, double cy, double angle, PatternStitch stitch, StitchStoreNotifier notifier, {bool hovered = false, bool selected = false}) {
+  Widget _slipStitchSymbol(double cx, double cy, double angle, PatternStitch stitch, StitchStoreNotifier notifier, {bool hovered = false, bool selected = false, bool isDelete = false}) {
     final record = notifier.getStitch(stitch.name ?? 'sl st') ?? notifier.getStitch('sl st');
     if (record == null || record.svgContent.isEmpty) {
-      return _circle(cx, cy, hovered: hovered, selected: selected);
+      return _circle(cx, cy, hovered: hovered, selected: selected, isDelete: isDelete);
     }
     final dim = _svgDim(record.svgContent);
     final sw = dim.$1 * stitchScale;
     final sh = dim.$2 * stitchScale;
+    final hFg = isDelete ? _deleteHoverFg : _hoverFg;
+    final hBg = isDelete ? _deleteHoverBg : _hoverBg;
     final svg = substituteColors(record.svgContent,
-        selected ? _selectedFg : (hovered ? _hoverFg : '#333333'),
-        selected ? _selectedBg : (hovered ? _hoverBg : '#ffffff'));
+        selected ? _selectedFg : (hovered ? hFg : '#333333'),
+        selected ? _selectedBg : (hovered ? hBg : '#ffffff'));
     return Positioned(
       left: cx - sw / 2,
       top: cy - sh / 2,
@@ -1543,18 +1654,20 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     );
   }
 
-  Widget _chainSymbol(double cx, double cy, double angle, StitchStoreNotifier notifier, {bool tangent = true, bool hovered = false, bool selected = false}) {
+  Widget _chainSymbol(double cx, double cy, double angle, StitchStoreNotifier notifier, {bool tangent = true, bool hovered = false, bool selected = false, bool isDelete = false}) {
     final rot = tangent ? angle + pi / 2 : angle;
     final record = notifier.getStitch('ch');
     if (record == null || record.svgContent.isEmpty) {
-      return _chainLink(cx, cy, rot, 4.2, hovered: hovered, selected: selected);
+      return _chainLink(cx, cy, rot, 4.2, hovered: hovered, selected: selected, isDelete: isDelete);
     }
     final dim = _svgDim(record.svgContent);
     final sw = dim.$1 * stitchScale;
     final sh = dim.$2 * stitchScale;
+    final hFg = isDelete ? _deleteHoverFg : _hoverFg;
+    final hBg = isDelete ? _deleteHoverBg : _hoverBg;
     final svg = substituteColors(record.svgContent,
-        selected ? _selectedFg : (hovered ? _hoverFg : '#333333'),
-        selected ? _selectedBg : (hovered ? _hoverBg : '#ffffff'));
+        selected ? _selectedFg : (hovered ? hFg : '#333333'),
+        selected ? _selectedBg : (hovered ? hBg : '#ffffff'));
     return Positioned(
       left: cx - sw / 2,
       top: cy - sh / 2,
@@ -1570,13 +1683,15 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     );
   }
 
-  Widget _chainLink(double cx, double cy, double angle, double chainH, {bool hovered = false, bool selected = false}) {
+  Widget _chainLink(double cx, double cy, double angle, double chainH, {bool hovered = false, bool selected = false, bool isDelete = false}) {
     final linkW = chainH;
     final linkH = chainH * 0.7;
+    final hFgColor = isDelete ? _deleteHoverFgColor : _hoverFgColor;
+    final hBgColor = isDelete ? _deleteHoverBgColor : _hoverBgColor;
     final color = selected
         ? _selectedFgColor
         : hovered
-            ? _hoverFgColor
+            ? hFgColor
             : const Color(0xFF999999);
     return Positioned(
       left: cx - linkW / 2,
@@ -1591,7 +1706,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             color: selected
                 ? _selectedBgColor
                 : hovered
-                    ? _hoverBgColor
+                    ? hBgColor
                     : null,
             borderRadius: BorderRadius.circular(linkW / 2),
           ),
@@ -1600,11 +1715,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     );
   }
 
-  Widget _circle(double cx, double cy, {bool hovered = false, bool selected = false}) {
+  Widget _circle(double cx, double cy, {bool hovered = false, bool selected = false, bool isDelete = false}) {
+    final hFgColor = isDelete ? _deleteHoverFgColor : _hoverFgColor;
     final color = selected
         ? _selectedFgColor
         : hovered
-            ? _hoverFgColor
+            ? hFgColor
             : const Color(0xFF666666);
     return Positioned(
       left: cx - 2.5,
@@ -1613,22 +1729,25 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     );
   }
 
-  Widget _svgStitch(_PosStitch p, double half, StitchStoreNotifier notifier, {bool hovered = false, bool selected = false}) {
+  Widget _svgStitch(_PosStitch p, double half, StitchStoreNotifier notifier, {bool hovered = false, bool selected = false, bool isDelete = false}) {
     final name = p.stitch.name ?? p.stitch.kind;
     if (selected) debugPrint('SVGSTITCH selected name=$name x=${p.x.toStringAsFixed(1)} y=${p.y.toStringAsFixed(1)}');
     final record = notifier.getStitch(name);
+    final hFgColor = isDelete ? _deleteHoverFgColor : _hoverFgColor;
     if (record == null || record.svgContent.isEmpty) {
       return Positioned(left: half + p.x - 6, top: half + p.y - 4, child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 12, height: 8, decoration: BoxDecoration(color: const Color(0xFFDDDDDD), borderRadius: BorderRadius.circular(2), border: Border.all(color: selected ? _selectedFgColor : (hovered ? _hoverFgColor : const Color(0xFF999999)), width: 0.5))),
+        Container(width: 12, height: 8, decoration: BoxDecoration(color: const Color(0xFFDDDDDD), borderRadius: BorderRadius.circular(2), border: Border.all(color: selected ? _selectedFgColor : (hovered ? hFgColor : const Color(0xFF999999)), width: 0.5))),
         Text(name, style: const TextStyle(fontSize: 6, color: Color(0xFF999999))),
       ]));
     }
     final dim = _svgDim(record.svgContent);
     final sw = dim.$1 * stitchScale;
     final sh = dim.$2 * stitchScale;
+    final hFg = isDelete ? _deleteHoverFg : _hoverFg;
+    final hBg = isDelete ? _deleteHoverBg : _hoverBg;
     final svg = substituteColors(record.svgContent,
-        selected ? _selectedFg : (hovered ? _hoverFg : '#333333'),
-        selected ? _selectedBg : (hovered ? _hoverBg : '#ffffff'));
+        selected ? _selectedFg : (hovered ? hFg : '#333333'),
+        selected ? _selectedBg : (hovered ? hBg : '#ffffff'));
     final ra = p.renderAngle ?? p.angle;
     final ax = p.x - (sh / 2) * cos(ra);
     final ay = p.y - (sh / 2) * sin(ra);

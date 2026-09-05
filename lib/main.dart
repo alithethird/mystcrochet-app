@@ -257,6 +257,10 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                 _handleOpen(innerContext),
             const SingleActivator(LogicalKeyboardKey.keyO, meta: true): () =>
                 _handleOpen(innerContext),
+            const SingleActivator(LogicalKeyboardKey.delete): () =>
+                _chartKey.currentState?.deleteSelectedStitch(),
+            const SingleActivator(LogicalKeyboardKey.backspace): () =>
+                _chartKey.currentState?.deleteSelectedStitch(),
           },
           child: Focus(
             autofocus: true,

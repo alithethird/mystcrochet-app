@@ -10,6 +10,7 @@ enum EditMode {
   visualPlace,
   visualSelect,
   move,
+  delete,
 }
 
 class EditModeState {
