@@ -125,7 +125,7 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
   final result = <List<_PosStitch>>[];
   if (rounds.isEmpty) return result;
   final polygonMode = sides >= 3;
-  double curR = ringRadius;
+  double baseR = ringRadius;
   const pad = 5.0;
   final chainGeo = STITCH_GEOMETRY['ch'];
   final chainInset = chainGeo != null ? chainGeo.height * stitchScale : 4.2;
@@ -140,11 +140,11 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
     // any later stitches line up correctly.
     final magicOnly = real.isEmpty && round.stitches.isNotEmpty;
     if (magicOnly) continue;
-    final spacing = _roundSpacing(round, notifier) + (round.radiusOffset ?? 0);
-    final radius = result.isEmpty
-        ? (ringRadius + (round.radiusOffset ?? 0))
-        : (curR += spacing);
-    curR = radius;
+    final baseSpacing = _roundSpacing(round, notifier);
+    if (result.isNotEmpty) {
+      baseR += baseSpacing;
+    }
+    final radius = baseR + (round.radiusOffset ?? 0);
     final cr = polygonMode
         ? pg.polygonCornerRadius(radius, sides, cornerRatio)
         : 0.0;
@@ -772,27 +772,76 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     notifier.setChart(chart.copyWith(patternRounds: updatedRounds));
   }
 
+  void _deleteLastRound() {
+    final notifier = ref.read(chartProvider.notifier);
+    final chart = notifier.chart;
+    if (chart.patternRounds.isEmpty) return;
+    final updatedRounds = List<PatternRound>.from(chart.patternRounds);
+    final removed = updatedRounds.removeLast();
+    final connected = assignConnections(updatedRounds);
+    notifier.setChart(chart.copyWith(patternRounds: connected), recordUndo: true);
+    setState(() {
+      if (_selectedRoundIdx != null && _selectedRoundIdx! >= updatedRounds.length) {
+        _selectedRoundIdx = null;
+        _selectedStitchIdx = null;
+      }
+      _hoverRoundIdx = null;
+      _hoverStitchIdx = null;
+    });
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text('Tur ${removed.number} silindi'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  (int, int)? _findNearestStitch(Offset content, double svgSize, List<List<_PosStitch>> positioned, {double maxDist = 32.0}) {
+    final half = svgSize / 2;
+    final cx = content.dx - half;
+    final cy = content.dy - half;
+    double bestDist = maxDist;
+    int? hitRi;
+    int? hitSi;
+    for (int ri = 0; ri < positioned.length; ri++) {
+      for (int si = 0; si < positioned[ri].length; si++) {
+        final p = positioned[ri][si];
+        double d = sqrt((p.x - cx) * (p.x - cx) + (p.y - cy) * (p.y - cy));
+        if (p.stitch.kind == 'chain') {
+          final c = p.stitch.count ?? 1;
+          if (c > 1) {
+            final tx = -sin(p.angle);
+            final ty = cos(p.angle);
+            const linkStep = 10.0;
+            for (int i = 0; i < c; i++) {
+              final off = (i - (c - 1) / 2) * linkStep;
+              final lx = p.x + tx * off;
+              final ly = p.y + ty * off;
+              final ld = sqrt((lx - cx) * (lx - cx) + (ly - cy) * (ly - cy));
+              if (ld < d) d = ld;
+            }
+          }
+        }
+        if (d < bestDist) {
+          bestDist = d;
+          hitRi = ri;
+          hitSi = si;
+        }
+      }
+    }
+    if (hitRi != null && hitSi != null) {
+      return (hitRi, hitSi);
+    }
+    return null;
+  }
+
   void _deleteStitchAt(Offset content, double svgSize, List<List<_PosStitch>>? positioned) {
     final half = svgSize / 2;
     if (positioned != null) {
-      double bestDist = 28.0;
-      int? hitRi;
-      int? hitSi;
-      for (int ri = 0; ri < positioned.length; ri++) {
-        for (int si = 0; si < positioned[ri].length; si++) {
-          final p = positioned[ri][si];
-          final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) +
-              (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
-          if (d < bestDist) {
-            bestDist = d;
-            hitRi = ri;
-            hitSi = si;
-          }
-        }
-      }
-      if (hitRi != null && hitSi != null) {
-        debugPrint('[DELETE_STITCH] ri=$hitRi si=$hitSi');
-        _deleteStitch(hitRi, hitSi);
+      final hit = _findNearestStitch(content, svgSize, positioned, maxDist: 32.0);
+      if (hit != null) {
+        debugPrint('[DELETE_STITCH] ri=${hit.$1} si=${hit.$2}');
+        _deleteStitch(hit.$1, hit.$2);
         return;
       }
     }
@@ -899,46 +948,18 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
 
   void _toggleSelectionAt(Offset content, double svgSize, List<List<_PosStitch>>? positioned) {
     if (positioned == null) return;
-    final half = svgSize / 2;
-    double bestDist = 28.0;
-    int? hitRi;
-    int? hitSi;
-    for (int ri = 0; ri < positioned.length; ri++) {
-      for (int si = 0; si < positioned[ri].length; si++) {
-        final p = positioned[ri][si];
-        final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) +
-            (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
-        if (d < bestDist) {
-          bestDist = d;
-          hitRi = ri;
-          hitSi = si;
-        }
-      }
-    }
-    if (hitRi != null && hitSi != null) {
-      ref.read(editModeProvider.notifier).toggleStitchSelection(hitRi, hitSi);
+    final hit = _findNearestStitch(content, svgSize, positioned, maxDist: 32.0);
+    if (hit != null) {
+      ref.read(editModeProvider.notifier).toggleStitchSelection(hit.$1, hit.$2);
     }
   }
 
   void _selectReplaceTargetAt(Offset content, double svgSize, List<List<_PosStitch>>? positioned) {
     if (positioned == null) return;
-    final half = svgSize / 2;
-    double bestDist = 28.0;
-    int? hitRi;
-    int? hitSi;
-    for (int ri = 0; ri < positioned.length; ri++) {
-      for (int si = 0; si < positioned[ri].length; si++) {
-        final p = positioned[ri][si];
-        final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) +
-            (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
-        if (d < bestDist) {
-          bestDist = d;
-          hitRi = ri;
-          hitSi = si;
-        }
-      }
-    }
-    if (hitRi != null && hitSi != null) {
+    final hit = _findNearestStitch(content, svgSize, positioned, maxDist: 32.0);
+    if (hit != null) {
+      final hitRi = hit.$1;
+      final hitSi = hit.$2;
       final pStitch = positioned[hitRi][hitSi];
       final stitchName = pStitch.stitch.name ?? pStitch.stitch.kind;
       final chart = ref.read(chartProvider).chart;
@@ -1120,26 +1141,18 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     return MatrixUtils.transformPoint(inverse, local);
   }
 
-  void _startDrag(Offset globalPos, double svgSize, List<List<_PosStitch>> positioned,
+  bool _startDrag(Offset globalPos, double svgSize, List<List<_PosStitch>> positioned,
       {required int sides, required double cornerRatio}) {
     debugPrint('STARTDRAG');
     final content = _contentLocal(globalPos);
-    if (content == null) return;
-    final half = svgSize / 2;
+    if (content == null) return false;
     _dragRoundIdx = null;
     _dragStitchIdx = null;
     _hasRecordedDragUndo = false;
-    double bestDist = 20;
-    for (int ri = 0; ri < positioned.length; ri++) {
-      for (int si = 0; si < positioned[ri].length; si++) {
-        final p = positioned[ri][si];
-        final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) + (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
-        if (d < bestDist) {
-          bestDist = d;
-          _dragRoundIdx = ri;
-          _dragStitchIdx = si;
-        }
-      }
+    final hit = _findNearestStitch(content, svgSize, positioned, maxDist: 32.0);
+    if (hit != null) {
+      _dragRoundIdx = hit.$1;
+      _dragStitchIdx = hit.$2;
     }
     if (_dragRoundIdx != null) {
       final dragged = positioned[_dragRoundIdx!][_dragStitchIdx!];
@@ -1159,6 +1172,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           _selectedStitchIdx = _dragStitchIdx;
         });
       }
+      return true;
     } else {
       if (_selectedRoundIdx != null || _selectedStitchIdx != null) {
         setState(() {
@@ -1166,6 +1180,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           _selectedStitchIdx = null;
         });
       }
+      return false;
     }
   }
 
@@ -1250,17 +1265,19 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       _refreshVisualToChartMap(positioned, rounds);
     }
     final roundStarts = <double>[effectiveRingRadius];
+    double baseR = effectiveRingRadius;
     bool firstRound = true;
     for (final round in rounds) {
       final real = round.stitches.where((s) => s.kind != 'magicRing').toList();
       // Match _layout: skip only magic-only rounds, reserve an entry for empty ones.
       final magicOnly = real.isEmpty && round.stitches.isNotEmpty;
       if (magicOnly) continue;
-      final spacing = _roundSpacing(round, stitchNotifier) + (round.radiusOffset ?? 0);
-      final next = firstRound
-          ? roundStarts.last + (round.radiusOffset ?? 0)
-          : roundStarts.last + spacing;
-      roundStarts.add(next);
+      final baseSpacing = _roundSpacing(round, stitchNotifier);
+      if (!firstRound) {
+        baseR += baseSpacing;
+      }
+      final rStart = baseR + (round.radiusOffset ?? 0);
+      roundStarts.add(rStart);
       firstRound = false;
     }
     double maxR = effectiveRingRadius + 30;
@@ -1310,10 +1327,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
         onPointerDown: (event) {
           if (event.buttons == kPrimaryButton) {
             if (editState.mode == EditMode.move && positioned != null) {
-              _startDrag(event.position, svgSize, positioned, sides: sides, cornerRatio: cornerRatio);
-              _dragPointer = event.pointer;
+              final grabbed = _startDrag(event.position, svgSize, positioned, sides: sides, cornerRatio: cornerRatio);
+              if (grabbed) {
+                _dragPointer = event.pointer;
+              }
             }
-          } else {
+          } else if (event.buttons == kMiddleMouseButton) {
             _middleDragPointer = event.pointer;
             _middleDragLast = event.position;
           }
@@ -1326,7 +1345,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             return;
           }
           if (event.pointer == _middleDragPointer && _middleDragLast != null) {
-            if (event.buttons != kPrimaryButton) {
+            if (event.buttons == kMiddleMouseButton) {
               final scale = _transform.value.getMaxScaleOnAxis();
               final dx = event.position.dx - _middleDragLast!.dx;
               final dy = event.position.dy - _middleDragLast!.dy;
@@ -1349,6 +1368,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           }
         },
         onPointerSignal: (event) {
+          if (_dragPointer != null || _dragRoundIdx != null) return;
           if (event is PointerScrollEvent) {
             final scale = _transform.value.getMaxScaleOnAxis();
             _transform.value.translateByDouble(
@@ -1376,21 +1396,9 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             final matrix = _transform.value;
             final inverse = Matrix4.identity()..copyInverse(matrix);
             final content = MatrixUtils.transformPoint(inverse, event.localPosition);
-            final half = svgSize / 2;
-            double bestDist = 20;
-            int? hitRi;
-            int? hitSi;
-            for (int ri = 0; ri < positioned.length; ri++) {
-              for (int si = 0; si < positioned[ri].length; si++) {
-                final p = positioned[ri][si];
-                final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) + (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
-                if (d < bestDist) {
-                  bestDist = d;
-                  hitRi = ri;
-                  hitSi = si;
-                }
-              }
-            }
+            final hit = _findNearestStitch(content, svgSize, positioned, maxDist: 32.0);
+            final hitRi = hit?.$1;
+            final hitSi = hit?.$2;
             if (hitRi != _hoverRoundIdx || hitSi != _hoverStitchIdx) {
               setState(() {
                 _hoverRoundIdx = hitRi;
@@ -1420,101 +1428,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
               _toggleSelectionAt(content, svgSize, positioned);
             }
           },
-          onPanStart: (details) {
-            debugPrint('PANSTART mode=${editState.mode} positioned=${positioned != null}');
-            if (editState.mode != EditMode.move || positioned == null) return;
-            final matrix = _transform.value;
-            final inverse = Matrix4.identity()..copyInverse(matrix);
-            final content = MatrixUtils.transformPoint(inverse, details.localPosition);
-            final half = svgSize / 2;
-            double bestDist = 20;
-            for (int ri = 0; ri < positioned.length; ri++) {
-              for (int si = 0; si < positioned[ri].length; si++) {
-                final p = positioned[ri][si];
-                final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) + (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
-                if (d < bestDist) {
-                  bestDist = d;
-                  _dragRoundIdx = ri;
-                  _dragStitchIdx = si;
-                }
-              }
-            }
-            if (_dragRoundIdx != null) {
-              final dragged = positioned[_dragRoundIdx!][_dragStitchIdx!];
-              _dragSides = sides;
-              _dragCornerRatio = cornerRatio;
-              // Unanchored stitches (first round, no connectsTo) are pinned to
-              // an absolute position on drag so they stay where the user drops
-              // them even when more stitches are added later. Anchored stitches
-              // use a relative offset from their anchor.
-              _dragPinned = dragged.stitch.connectsTo == null;
-              debugPrint('PANSTART grabbed ri=$_dragRoundIdx si=$_dragStitchIdx pinned=$_dragPinned angle=${dragged.angle}');
-              setState(() {
-                _selectedRoundIdx = _dragRoundIdx;
-                _selectedStitchIdx = _dragStitchIdx;
-              });
-              if (sides >= 3) {
-                final prevPerimOffset = dragged.stitch.perimeterOffset ?? 0;
-                _dragBasePerim = dragged.perimeterS - prevPerimOffset;
-              } else {
-                _dragBaseAngle = dragged.angle
-                    - (dragged.stitch.angleOffset ?? 0);
-              }
-            }
-          },
-          onPanUpdate: (details) {
-            debugPrint('PANUPDATE dragRi=$_dragRoundIdx');
-            if (_dragRoundIdx == null || _dragStitchIdx == null) return;
-            final matrix = _transform.value;
-            final inverse = Matrix4.identity()..copyInverse(matrix);
-            final content = MatrixUtils.transformPoint(inverse, details.localPosition);
-            final half = svgSize / 2;
-            final dx = content.dx - half;
-            final dy = content.dy - half;
-            if (_dragSides >= 3) {
-              final dragged = positioned![_dragRoundIdx!][_dragStitchIdx!];
-              final r = dragged.radius;
-              final cr = pg.polygonCornerRadius(r, _dragSides, _dragCornerRatio);
-              final clickPerim =
-                  pg.polygonPerimeterFromDirection(r, _dragSides, cr, atan2(dy, dx));
-              if (_dragPinned) {
-                // Absolute pin: the click perimeter IS the new pinned position.
-                _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, clickPerim,
-                    polygonMode: true, pinned: true);
-              } else {
-                _maybeReanchorPolygon(clickPerim, positioned);
-                var delta = clickPerim - _dragBasePerim;
-                final perim = pg.polygonPerimeter(r, _dragSides, cr);
-                while (delta > perim / 2) {
-                  delta -= perim;
-                }
-                while (delta < -perim / 2) {
-                  delta += perim;
-                }
-                _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, delta,
-                    polygonMode: true, pinned: false);
-              }
-            } else {
-              final angle = atan2(dy, dx);
-              if (_dragPinned) {
-                _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle,
-                    polygonMode: false, pinned: true);
-              } else {
-                _maybeReanchorCircle(angle, positioned!);
-                _setStitchOffset(_dragRoundIdx!, _dragStitchIdx!, angle - _dragBaseAngle,
-                    polygonMode: false, pinned: false);
-              }
-            }
-          },
-          onPanEnd: (_) {
-            _dragRoundIdx = null;
-            _dragStitchIdx = null;
-          },
           child: InteractiveViewer(
             transformationController: _transform,
             minScale: 0.25,
             maxScale: 6,
             panEnabled: editState.mode == EditMode.pan,
+            scaleEnabled: editState.mode != EditMode.move && _dragPointer == null && _dragRoundIdx == null,
             constrained: false,
             boundaryMargin: const EdgeInsets.all(double.infinity),
             child: RepaintBoundary(
@@ -1671,6 +1590,28 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: const Text('Yeni Tur', style: TextStyle(fontSize: 10, color: Colors.white)),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          key: const ValueKey('canvas_delete_last_round_button'),
+                          onTap: rounds.isNotEmpty ? _deleteLastRound : null,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: rounds.isNotEmpty
+                                  ? const Color(0xFFDC2626)
+                                  : const Color(0xFFCCCCCC),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.delete_outline, size: 12, color: Colors.white),
+                                SizedBox(width: 2),
+                                Text('Son Turu Sil', style: TextStyle(fontSize: 10, color: Colors.white)),
+                              ],
+                            ),
                           ),
                         ),
                       ],

@@ -246,5 +246,192 @@ void main() {
       // Verify Round 2 retains its expansion radiusOffset
       expect(updatedChart.patternRounds[1].radiusOffset, equals(5.0));
     });
+
+    testWidgets('Task 27: Expanding Round 1 does not shift Round 2 stitches radius or position',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final round1 = PatternRound(
+        number: 1,
+        stitches: [
+          PatternStitch(kind: 'stitch', name: 'sc'),
+        ],
+      );
+      final round2 = PatternRound(
+        number: 2,
+        stitches: [
+          PatternStitch(kind: 'stitch', name: 'dc', connectsTo: 0),
+        ],
+      );
+
+      final initialChart = Chart.defaultChart().copyWith(
+        name: 'Radius Isolation Test',
+        starterStitchName: 'magicRing',
+        patternRounds: [round1, round2],
+      );
+
+      final container = ProviderContainer();
+      final chartNotifier = container.read(chartProvider.notifier);
+      chartNotifier.setChart(initialChart);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: VisualChartView(ringRadius: 50.0),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find initial position of dc stitch (in Round 2)
+      final dcFinder = find.text('dc');
+      expect(dcFinder, findsOneWidget);
+      final initialDcPos = tester.getCenter(dcFinder);
+
+      // Now expand Round 1 via chart notifier
+      final rounds = List<PatternRound>.from(chartNotifier.chart.patternRounds);
+      rounds[0] = rounds[0].copyWith(radiusOffset: 30.0);
+      chartNotifier.setChart(chartNotifier.chart.copyWith(patternRounds: rounds));
+      await tester.pumpAndSettle();
+
+      // Verify Round 1 offset is 30.0 and Round 2 offset is null
+      expect(chartNotifier.chart.patternRounds[0].radiusOffset, equals(30.0));
+      expect(chartNotifier.chart.patternRounds[1].radiusOffset, isNull);
+
+      // Verify Round 2 dc stitch position has NOT changed
+      final newDcPos = tester.getCenter(dcFinder);
+      expect(newDcPos.dx, closeTo(initialDcPos.dx, 0.01));
+      expect(newDcPos.dy, closeTo(initialDcPos.dy, 0.01));
+    });
+
+    testWidgets('Task 28: Son Turu Sil button deletes the last round and supports undo',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final round1 = PatternRound(
+        number: 1,
+        stitches: [
+          PatternStitch(kind: 'stitch', name: 'sc'),
+        ],
+      );
+      final round2 = PatternRound(
+        number: 2,
+        stitches: [
+          PatternStitch(kind: 'stitch', name: 'dc', connectsTo: 0),
+        ],
+      );
+
+      final initialChart = Chart.defaultChart().copyWith(
+        name: 'Delete Last Round Test',
+        starterStitchName: 'magicRing',
+        patternRounds: [round1, round2],
+      );
+
+      final container = ProviderContainer();
+      final chartNotifier = container.read(chartProvider.notifier);
+      chartNotifier.setChart(initialChart);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: VisualChartView(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(chartNotifier.chart.patternRounds.length, equals(2));
+
+      // Find 'Son Turu Sil' button
+      final deleteBtnFinder = find.byKey(const ValueKey('canvas_delete_last_round_button'));
+      expect(deleteBtnFinder, findsOneWidget);
+
+      // Tap 'Son Turu Sil'
+      await tester.tap(deleteBtnFinder);
+      await tester.pumpAndSettle();
+
+      // Round 2 should be removed, leaving only 1 round
+      expect(chartNotifier.chart.patternRounds.length, equals(1));
+      expect(chartNotifier.chart.patternRounds[0].number, equals(1));
+
+      // Undo should restore Round 2
+      chartNotifier.undo();
+      await tester.pumpAndSettle();
+      expect(chartNotifier.chart.patternRounds.length, equals(2));
+    });
+
+    testWidgets('Task 29: Dragging a stitch in move mode does not pan the canvas',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final round1 = PatternRound(
+        number: 1,
+        stitches: [
+          PatternStitch(kind: 'stitch', name: 'sc'),
+        ],
+      );
+
+      final initialChart = Chart.defaultChart().copyWith(
+        name: 'No Pan on Drag Test',
+        starterStitchName: 'magicRing',
+        patternRounds: [round1],
+      );
+
+      final container = ProviderContainer();
+      final chartNotifier = container.read(chartProvider.notifier);
+      chartNotifier.setChart(initialChart);
+      container.read(editModeProvider.notifier).setMode(EditMode.move);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: VisualChartView(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find InteractiveViewer
+      final ivFinder = find.byType(InteractiveViewer);
+      expect(ivFinder, findsOneWidget);
+      final ivWidgetBefore = tester.widget<InteractiveViewer>(ivFinder);
+      final matrixBefore = ivWidgetBefore.transformationController!.value.clone();
+
+      // Locate stitch
+      final scFinder = find.text('sc');
+      expect(scFinder, findsOneWidget);
+      final scCenter = tester.getCenter(scFinder);
+
+      // Drag stitch
+      final gesture = await tester.startGesture(scCenter);
+      await tester.pump();
+      await gesture.moveBy(const Offset(30, 30));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      // InteractiveViewer transformation matrix should be identical (no canvas panning)
+      final ivWidgetAfter = tester.widget<InteractiveViewer>(ivFinder);
+      final matrixAfter = ivWidgetAfter.transformationController!.value;
+      expect(matrixAfter, equals(matrixBefore));
+    });
   });
 }
