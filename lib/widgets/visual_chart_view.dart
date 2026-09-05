@@ -10,6 +10,7 @@ import '../models/pattern.dart';
 import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
 import '../providers/stitch_provider.dart';
+import '../services/stitch_replace_service.dart' as stitch_service;
 import '../utils/svg.dart';
 import '../utils/polygon.dart' as pg;
 
@@ -871,6 +872,54 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     }
   }
 
+  void deleteSelectedStitches() {
+    final selected = ref.read(editModeProvider).selectedStitchKeys;
+    if (selected.isEmpty) {
+      deleteSelectedStitch();
+      return;
+    }
+    final chartNotifier = ref.read(chartProvider.notifier);
+    final chart = chartNotifier.chart;
+    final result = stitch_service.deleteSelectedStitches(chart: chart, selectedKeys: selected);
+    chartNotifier.setChart(result.updatedChart, recordUndo: true);
+    ref.read(editModeProvider.notifier).clearSelection();
+    setState(() {
+      _hoverRoundIdx = null;
+      _hoverStitchIdx = null;
+      _selectedRoundIdx = null;
+      _selectedStitchIdx = null;
+    });
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text('${result.deletedCount} ilmek silindi'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _toggleSelectionAt(Offset content, double svgSize, List<List<_PosStitch>>? positioned) {
+    if (positioned == null) return;
+    final half = svgSize / 2;
+    double bestDist = 28.0;
+    int? hitRi;
+    int? hitSi;
+    for (int ri = 0; ri < positioned.length; ri++) {
+      for (int si = 0; si < positioned[ri].length; si++) {
+        final p = positioned[ri][si];
+        final d = sqrt((p.x - (content.dx - half)) * (p.x - (content.dx - half)) +
+            (p.y - (content.dy - half)) * (p.y - (content.dy - half)));
+        if (d < bestDist) {
+          bestDist = d;
+          hitRi = ri;
+          hitSi = si;
+        }
+      }
+    }
+    if (hitRi != null && hitSi != null) {
+      ref.read(editModeProvider.notifier).toggleStitchSelection(hitRi, hitSi);
+    }
+  }
+
   void _selectReplaceTargetAt(Offset content, double svgSize, List<List<_PosStitch>>? positioned) {
     if (positioned == null) return;
     final half = svgSize / 2;
@@ -1310,12 +1359,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           }
         },
         child: MouseRegion(
-          cursor: (editState.mode == EditMode.move || editState.mode == EditMode.delete || editState.mode == EditMode.replace)
+          cursor: (editState.mode == EditMode.move || editState.mode == EditMode.delete || editState.mode == EditMode.replace || editState.mode == EditMode.select)
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
           onHover: (event) {
             if (_dragRoundIdx != null) return;
-            if ((editState.mode != EditMode.move && editState.mode != EditMode.delete && editState.mode != EditMode.replace) || positioned == null) {
+            if ((editState.mode != EditMode.move && editState.mode != EditMode.delete && editState.mode != EditMode.replace && editState.mode != EditMode.select) || positioned == null) {
               if (_hoverRoundIdx != null || _hoverStitchIdx != null) {
                 setState(() {
                   _hoverRoundIdx = null;
@@ -1367,6 +1416,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
               _deleteStitchAt(content, svgSize, positioned);
             } else if (editState.mode == EditMode.replace) {
               _selectReplaceTargetAt(content, svgSize, positioned);
+            } else if (editState.mode == EditMode.select) {
+              _toggleSelectionAt(content, svgSize, positioned);
             }
           },
           onPanStart: (details) {
@@ -1510,8 +1561,9 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                               : (editState.mode == EditMode.replace
                                   ? editState.replaceStitchIdx
                                   : _selectedStitchIdx),
+                          selectedKeys: _isExporting ? null : editState.selectedStitchKeys,
                           isDeleteMode: editState.mode == EditMode.delete,
-                          isReplaceMode: editState.mode == EditMode.replace,
+                          isReplaceMode: editState.mode == EditMode.replace || editState.mode == EditMode.select,
                         ),
 
                     // Hint text when empty (omitted during export)
@@ -1627,7 +1679,117 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                 },
               ),
             ),
-          if (!_isExporting && editState.mode == EditMode.replace)
+          if (!_isExporting && editState.selectedStitchKeys.isNotEmpty)
+            Positioned(
+              top: 8,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Material(
+                  elevation: 3,
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.checklist, size: 18, color: Color(0xFF7C3AED)),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${editState.selectedStitchKeys.length} ilmek seçildi',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED)),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(height: 16, width: 1, color: Colors.grey.shade300),
+                        const SizedBox(width: 6),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor: const Color(0xFF7C3AED),
+                          ),
+                          icon: const Icon(Icons.swap_horiz, size: 16),
+                          label: const Text('Değiştir (Paletten Seç)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          onPressed: () {
+                            ref.read(editModeProvider.notifier).setMode(EditMode.replace);
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            foregroundColor: const Color(0xFFDC2626),
+                          ),
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          label: const Text('Sil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          onPressed: deleteSelectedStitches,
+                        ),
+                        const SizedBox(width: 6),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 16),
+                          tooltip: 'Seçimi Temizle',
+                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            ref.read(editModeProvider.notifier).clearSelection();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (!_isExporting && editState.mode == EditMode.select && editState.selectedStitchKeys.isEmpty)
+            Positioned(
+              top: 8,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Material(
+                  elevation: 3,
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.checklist, size: 18, color: Color(0xFF7C3AED)),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Seçmek istediğiniz ilmeklere dokunun (birden fazla seçebilirsiniz)',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 16),
+                          tooltip: 'İptal',
+                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            ref.read(editModeProvider.notifier).setMode(EditMode.stitch);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (!_isExporting && editState.mode == EditMode.replace && editState.selectedStitchKeys.isEmpty)
             Positioned(
               top: 8,
               left: 0,
@@ -1716,7 +1878,21 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     );
   }
 
-  List<Widget> _buildRound(List<_PosStitch> round, int roundIndex, double half, StitchStoreNotifier notifier, double ringRadius, List<double> roundStarts, {int? hoverRoundIdx, int? hoverStitchIdx, int? selectedRoundIdx, int? selectedStitchIdx, bool isDeleteMode = false, bool isReplaceMode = false}) {
+  List<Widget> _buildRound(
+    List<_PosStitch> round,
+    int roundIndex,
+    double half,
+    StitchStoreNotifier notifier,
+    double ringRadius,
+    List<double> roundStarts, {
+    int? hoverRoundIdx,
+    int? hoverStitchIdx,
+    int? selectedRoundIdx,
+    int? selectedStitchIdx,
+    Set<String>? selectedKeys,
+    bool isDeleteMode = false,
+    bool isReplaceMode = false,
+  }) {
     final widgets = <Widget>[];
     final inMoveHover = hoverRoundIdx != null && hoverStitchIdx != null;
     final inSelected = selectedRoundIdx != null && selectedStitchIdx != null;
@@ -1732,10 +1908,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       final linkH = totalSpan / lc;
       final a = round[0].angle;
       final leadHovered = inMoveHover && hoverRoundIdx == roundIndex && hoverStitchIdx == 0;
-      final leadSelected = inSelected && selectedRoundIdx == roundIndex && selectedStitchIdx == 0;
+      final isLeadKeySelected = selectedKeys != null && selectedKeys.contains('$roundIndex:0');
+      final leadSelected = (inSelected && selectedRoundIdx == roundIndex && selectedStitchIdx == 0) || isLeadKeySelected;
+      final leadReplace = isReplaceMode || isLeadKeySelected;
       for (int i = 0; i < lc; i++) {
         final r = startR + (i + 0.5) * linkH;
-        widgets.add(_chainSymbol(half + r * cos(a), half + r * sin(a), a, notifier, tangent: false, hovered: leadHovered, selected: leadSelected, isDelete: isDeleteMode, isReplace: isReplaceMode));
+        widgets.add(_chainSymbol(half + r * cos(a), half + r * sin(a), a, notifier, tangent: false, hovered: leadHovered, selected: leadSelected, isDelete: isDeleteMode, isReplace: leadReplace));
       }
     }
 
@@ -1744,19 +1922,21 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       final p = round[si];
       final s = p.stitch;
       final hovered = inMoveHover && hoverRoundIdx == roundIndex && hoverStitchIdx == si;
-      final selected = inSelected && selectedRoundIdx == roundIndex && selectedStitchIdx == si;
+      final isKeySelected = selectedKeys != null && selectedKeys.contains('$roundIndex:$si');
+      final selected = (inSelected && selectedRoundIdx == roundIndex && selectedStitchIdx == si) || isKeySelected;
+      final isReplace = isReplaceMode || isKeySelected;
       if (s.kind == 'slipStitch') {
-        widgets.add(_slipStitchSymbol(half + p.x, half + p.y, p.angle, s, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode, isReplace: isReplaceMode));
+        widgets.add(_slipStitchSymbol(half + p.x, half + p.y, p.angle, s, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode, isReplace: isReplace));
       } else if (s.kind == 'chain') {
         final c = s.count ?? 1;
         final tx = -sin(p.angle);
         final ty = cos(p.angle);
         for (int i = 0; i < c; i++) {
           final off = (i - (c - 1) / 2) * fanStep;
-          widgets.add(_chainSymbol(half + p.x + tx * off, half + p.y + ty * off, p.angle, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode, isReplace: isReplaceMode));
+          widgets.add(_chainSymbol(half + p.x + tx * off, half + p.y + ty * off, p.angle, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode, isReplace: isReplace));
         }
       } else {
-        widgets.add(_svgStitch(p, half, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode, isReplace: isReplaceMode));
+        widgets.add(_svgStitch(p, half, notifier, hovered: hovered, selected: selected, isDelete: isDeleteMode, isReplace: isReplace));
       }
     }
     return widgets;

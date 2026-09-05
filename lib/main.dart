@@ -235,7 +235,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
   @override
   Widget build(BuildContext context) {
     ref.listen<EditModeState>(editModeProvider, (previous, next) {
-      if (next.mode == EditMode.replace && !_leftOpen) {
+      if ((next.mode == EditMode.replace || next.mode == EditMode.select || next.selectedStitchKeys.isNotEmpty) && !_leftOpen) {
         setState(() => _leftOpen = true);
       }
     });
@@ -264,10 +264,20 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                 _handleOpen(innerContext),
             const SingleActivator(LogicalKeyboardKey.keyO, meta: true): () =>
                 _handleOpen(innerContext),
-            const SingleActivator(LogicalKeyboardKey.delete): () =>
-                _chartKey.currentState?.deleteSelectedStitch(),
-            const SingleActivator(LogicalKeyboardKey.backspace): () =>
-                _chartKey.currentState?.deleteSelectedStitch(),
+            const SingleActivator(LogicalKeyboardKey.delete): () {
+              if (ref.read(editModeProvider).selectedStitchKeys.isNotEmpty) {
+                _chartKey.currentState?.deleteSelectedStitches();
+              } else {
+                _chartKey.currentState?.deleteSelectedStitch();
+              }
+            },
+            const SingleActivator(LogicalKeyboardKey.backspace): () {
+              if (ref.read(editModeProvider).selectedStitchKeys.isNotEmpty) {
+                _chartKey.currentState?.deleteSelectedStitches();
+              } else {
+                _chartKey.currentState?.deleteSelectedStitch();
+              }
+            },
           },
           child: Focus(
             autofocus: true,

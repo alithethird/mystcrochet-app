@@ -9,6 +9,7 @@ enum EditMode {
   pan,
   visualPlace,
   visualSelect,
+  select,
   move,
   delete,
   replace,
@@ -24,6 +25,7 @@ class EditModeState {
   final int? replaceStitchIdx;
   final String? replaceStitchName;
   final int? replaceMatchCount;
+  final Set<String> selectedStitchKeys;
 
   EditModeState({
     this.mode = EditMode.stitch,
@@ -35,6 +37,7 @@ class EditModeState {
     this.replaceStitchIdx,
     this.replaceStitchName,
     this.replaceMatchCount,
+    this.selectedStitchKeys = const {},
   });
 
   EditModeState copyWith({
@@ -47,6 +50,7 @@ class EditModeState {
     int? replaceStitchIdx,
     String? replaceStitchName,
     int? replaceMatchCount,
+    Set<String>? selectedStitchKeys,
     bool clearReplaceTarget = false,
   }) {
     return EditModeState(
@@ -59,6 +63,7 @@ class EditModeState {
       replaceStitchIdx: clearReplaceTarget ? null : (replaceStitchIdx ?? this.replaceStitchIdx),
       replaceStitchName: clearReplaceTarget ? null : (replaceStitchName ?? this.replaceStitchName),
       replaceMatchCount: clearReplaceTarget ? null : (replaceMatchCount ?? this.replaceMatchCount),
+      selectedStitchKeys: selectedStitchKeys ?? this.selectedStitchKeys,
     );
   }
 }
@@ -106,6 +111,25 @@ class EditModeNotifier extends StateNotifier<EditModeState> {
 
   void clearReplaceTarget() {
     state = state.copyWith(clearReplaceTarget: true);
+  }
+
+  void toggleStitchSelection(int roundIdx, int stitchIdx) {
+    final key = '$roundIdx:$stitchIdx';
+    final updated = Set<String>.from(state.selectedStitchKeys);
+    if (updated.contains(key)) {
+      updated.remove(key);
+    } else {
+      updated.add(key);
+    }
+    state = state.copyWith(selectedStitchKeys: updated);
+  }
+
+  void clearSelection() {
+    state = state.copyWith(selectedStitchKeys: const {});
+  }
+
+  void setSelection(Set<String> keys) {
+    state = state.copyWith(selectedStitchKeys: keys);
   }
 }
 

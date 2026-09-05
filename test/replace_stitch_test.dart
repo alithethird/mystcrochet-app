@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crochet_charts/models/chart.dart';
@@ -363,6 +362,230 @@ void main() {
       await tester.pump();
       final revertedRounds = container.read(chartProvider).chart.patternRounds;
       expect(revertedRounds[0].stitches[0].name, equals('dc'));
+    });
+
+    test('replaceSelectedStitches replaces all stitches specified in selectedKeys', () {
+      final initialChart = Chart(
+        name: 'Test Chart',
+        starterStitchName: 'mr',
+        guidelines: Guidelines(type: GuidelinesType.visual),
+        patternRounds: [
+          PatternRound(
+            number: 1,
+            stitches: [
+              PatternStitch(kind: 'stitch', name: 'dc', count: 6),
+            ],
+          ),
+        ],
+      );
+
+      final result = replaceSelectedStitches(
+        chart: initialChart,
+        selectedKeys: {'0:0', '0:2'},
+        newStitchName: 'sc',
+      );
+
+      expect(result.replacedCount, equals(2));
+      final roundStitches = result.updatedChart.patternRounds[0].stitches;
+      expect(roundStitches[0].name, equals('sc'));
+      expect(roundStitches[1].name, equals('dc'));
+      expect(roundStitches[2].name, equals('sc'));
+      expect(roundStitches[3].name, equals('dc'));
+      expect(roundStitches[4].name, equals('dc'));
+      expect(roundStitches[5].name, equals('dc'));
+    });
+
+    test('deleteSelectedStitches deletes all stitches specified in selectedKeys', () {
+      final initialChart = Chart(
+        name: 'Test Chart',
+        starterStitchName: 'mr',
+        guidelines: Guidelines(type: GuidelinesType.visual),
+        patternRounds: [
+          PatternRound(
+            number: 1,
+            stitches: [
+              PatternStitch(kind: 'stitch', name: 'dc', count: 6),
+            ],
+          ),
+        ],
+      );
+
+      final result = deleteSelectedStitches(
+        chart: initialChart,
+        selectedKeys: {'0:1', '0:3'},
+      );
+
+      expect(result.deletedCount, equals(2));
+      final roundStitches = result.updatedChart.patternRounds[0].stitches;
+      expect(roundStitches.length, equals(4));
+    });
+
+    testWidgets('AppToolbar shows "Seç" button, badges for selection, and bulk delete works',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final container = ProviderContainer();
+      final chartNotifier = container.read(chartProvider.notifier);
+      final editModeNotifier = container.read(editModeProvider.notifier);
+
+      chartNotifier.setChart(
+        Chart(
+          name: 'MultiSelect Test Chart',
+          starterStitchName: 'mr',
+          guidelines: Guidelines(type: GuidelinesType.visual),
+          patternRounds: [
+            PatternRound(
+              number: 1,
+              stitches: [
+                PatternStitch(kind: 'stitch', name: 'dc', count: 1),
+                PatternStitch(kind: 'stitch', name: 'dc', count: 1),
+                PatternStitch(kind: 'stitch', name: 'dc', count: 1),
+                PatternStitch(kind: 'stitch', name: 'dc', count: 1),
+              ],
+            ),
+          ],
+        ),
+        recordUndo: true,
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: AppToolbar(
+                onNew: () {},
+                onOpen: () {},
+                onSave: () {},
+                onTextView: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Find "Seç" button
+      final secButtonFinder = find.text('Seç');
+      expect(secButtonFinder, findsOneWidget);
+
+      // Tap "Seç" -> mode is select
+      await tester.tap(secButtonFinder);
+      await tester.pump();
+      expect(container.read(editModeProvider).mode, equals(EditMode.select));
+
+      // Select two stitches
+      editModeNotifier.toggleStitchSelection(0, 0);
+      editModeNotifier.toggleStitchSelection(0, 2);
+      await tester.pump();
+
+      expect(container.read(editModeProvider).selectedStitchKeys.length, equals(2));
+      expect(find.text('Seç (2)'), findsOneWidget);
+      expect(find.text('Değiştir (2)'), findsOneWidget);
+      expect(find.text('Sil (2)'), findsOneWidget);
+
+      // Tap "Sil (2)" to delete selected stitches
+      await tester.tap(find.text('Sil (2)'));
+      await tester.pump();
+
+      // Stitches deleted
+      final remaining = container.read(chartProvider).chart.patternRounds[0].stitches;
+      expect(remaining.length, equals(2));
+      expect(container.read(editModeProvider).selectedStitchKeys.isEmpty, isTrue);
+
+      // Undo restores 4 stitches
+      chartNotifier.undo();
+      await tester.pump();
+      expect(container.read(chartProvider).chart.patternRounds[0].stitches.length, equals(4));
+    });
+
+    testWidgets('StitchPalette replaces all selected stitches when clicked',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final stitchNotifier = StitchStoreNotifier();
+      stitchNotifier.setStitches([
+        StitchRecord(
+          name: 'dc',
+          description: 'Double crochet',
+          category: ['Basic'],
+          wrongSide: '',
+          svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+        ),
+        StitchRecord(
+          name: 'sc',
+          description: 'Single crochet',
+          category: ['Basic'],
+          wrongSide: '',
+          svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+        ),
+      ]);
+
+      final container = ProviderContainer(
+        overrides: [
+          stitchStoreProvider.overrideWith((ref) => stitchNotifier),
+        ],
+      );
+      final chartNotifier = container.read(chartProvider.notifier);
+      final editModeNotifier = container.read(editModeProvider.notifier);
+
+      chartNotifier.setChart(
+        Chart(
+          name: 'Bulk Replace Selection Chart',
+          starterStitchName: 'mr',
+          guidelines: Guidelines(type: GuidelinesType.visual),
+          patternRounds: [
+            PatternRound(
+              number: 1,
+              stitches: [
+                PatternStitch(kind: 'stitch', name: 'dc', count: 4),
+              ],
+            ),
+          ],
+        ),
+        recordUndo: true,
+      );
+
+      // Select 1st and 3rd stitches
+      editModeNotifier.toggleStitchSelection(0, 0);
+      editModeNotifier.toggleStitchSelection(0, 2);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(width: 240, child: StitchPalette()),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Tap 'sc' in palette
+      final scTileFinder = find.text('sc');
+      expect(scTileFinder, findsWidgets);
+      await tester.tap(scTileFinder.first);
+      await tester.pump();
+
+      final updated = container.read(chartProvider).chart.patternRounds[0].stitches;
+      expect(updated[0].name, equals('sc'));
+      expect(updated[1].name, equals('dc'));
+      expect(updated[2].name, equals('sc'));
+      expect(updated[3].name, equals('dc'));
+      expect(container.read(editModeProvider).selectedStitchKeys.isEmpty, isTrue);
+
+      // Undo reverts all replaced stitches
+      chartNotifier.undo();
+      await tester.pump();
+      final reverted = container.read(chartProvider).chart.patternRounds[0].stitches;
+      expect(reverted.every((s) => s.name == 'dc'), isTrue);
     });
   });
 }

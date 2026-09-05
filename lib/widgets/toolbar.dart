@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
+import '../services/stitch_replace_service.dart';
 
 class AppToolbar extends ConsumerWidget {
   final VoidCallback onNew;
@@ -32,22 +33,50 @@ class AppToolbar extends ConsumerWidget {
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.stitch),
       ),
       _ToolButton(
-        icon: Icons.open_with,
-        label: 'Taşı',
-        selected: editState.mode == EditMode.move,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.move),
+        icon: Icons.checklist,
+        label: editState.selectedStitchKeys.isNotEmpty ? 'Seç (${editState.selectedStitchKeys.length})' : 'Seç',
+        selected: editState.mode == EditMode.select,
+        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.select),
       ),
       _ToolButton(
         icon: Icons.swap_horiz,
-        label: 'Değiştir',
+        label: editState.selectedStitchKeys.isNotEmpty ? 'Değiştir (${editState.selectedStitchKeys.length})' : 'Değiştir',
         selected: editState.mode == EditMode.replace,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.replace),
       ),
       _ToolButton(
         icon: Icons.delete_outline,
-        label: 'Sil',
+        label: editState.selectedStitchKeys.isNotEmpty ? 'Sil (${editState.selectedStitchKeys.length})' : 'Sil',
         selected: editState.mode == EditMode.delete,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.delete),
+        onTap: () {
+          if (editState.selectedStitchKeys.isNotEmpty) {
+            final chartNotifier = ref.read(chartProvider.notifier);
+            final res = deleteSelectedStitches(
+              chart: chartNotifier.chart,
+              selectedKeys: editState.selectedStitchKeys,
+            );
+            if (res.deletedCount > 0) {
+              chartNotifier.setChart(res.updatedChart, recordUndo: true);
+              ref.read(editModeProvider.notifier).clearSelection();
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${res.deletedCount} adet seçili ilmek silindi.'),
+                  backgroundColor: const Color(0xFFDC2626),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          } else {
+            ref.read(editModeProvider.notifier).setMode(EditMode.delete);
+          }
+        },
+      ),
+      _ToolButton(
+        icon: Icons.open_with,
+        label: 'Taşı',
+        selected: editState.mode == EditMode.move,
+        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.move),
       ),
       _ToolButton(
         icon: Icons.text_fields,

@@ -134,3 +134,105 @@ ReplaceStitchResult replaceStitches({
     return ReplaceStitchResult(updatedChart: chart, replacedCount: 0);
   }
 }
+
+class DeleteStitchResult {
+  final Chart updatedChart;
+  final int deletedCount;
+
+  DeleteStitchResult({required this.updatedChart, required this.deletedCount});
+}
+
+DeleteStitchResult deleteSelectedStitches({
+  required Chart chart,
+  required Set<String> selectedKeys,
+}) {
+  if (selectedKeys.isEmpty) {
+    return DeleteStitchResult(updatedChart: chart, deletedCount: 0);
+  }
+
+  final rounds = List<PatternRound>.from(chart.patternRounds);
+  int totalDeleted = 0;
+  int visualRi = 0;
+
+  for (int i = 0; i < rounds.length; i++) {
+    final round = rounds[i];
+    final real = round.stitches.where((s) => s.kind != 'magicRing').toList();
+    final magicOnly = real.isEmpty && round.stitches.isNotEmpty;
+    if (magicOnly) continue;
+
+    final expanded = expandStitches(real);
+    final remaining = <PatternStitch>[];
+    for (int si = 0; si < expanded.length; si++) {
+      final key = '$visualRi:$si';
+      if (selectedKeys.contains(key)) {
+        totalDeleted++;
+      } else {
+        remaining.add(expanded[si]);
+      }
+    }
+
+    final magicStitches = round.stitches.where((s) => s.kind == 'magicRing').toList();
+    rounds[i] = round.copyWith(stitches: [...magicStitches, ...remaining]);
+    visualRi++;
+  }
+
+  // Trim trailing empty rounds if any
+  while (rounds.length > 1 && rounds.last.stitches.isEmpty) {
+    rounds.removeLast();
+  }
+
+  final connected = assignConnections(rounds);
+  return DeleteStitchResult(
+    updatedChart: chart.copyWith(patternRounds: connected),
+    deletedCount: totalDeleted,
+  );
+}
+
+ReplaceStitchResult replaceSelectedStitches({
+  required Chart chart,
+  required Set<String> selectedKeys,
+  required String newStitchName,
+}) {
+  if (selectedKeys.isEmpty) {
+    return ReplaceStitchResult(updatedChart: chart, replacedCount: 0);
+  }
+
+  final newKind = kindForStitchName(newStitchName);
+  final newCount = countForStitchName(newStitchName);
+  final rounds = List<PatternRound>.from(chart.patternRounds);
+  int totalReplaced = 0;
+  int visualRi = 0;
+
+  for (int i = 0; i < rounds.length; i++) {
+    final round = rounds[i];
+    final real = round.stitches.where((s) => s.kind != 'magicRing').toList();
+    final magicOnly = real.isEmpty && round.stitches.isNotEmpty;
+    if (magicOnly) continue;
+
+    final expanded = expandStitches(real);
+    final updatedStitches = <PatternStitch>[];
+    for (int si = 0; si < expanded.length; si++) {
+      final key = '$visualRi:$si';
+      if (selectedKeys.contains(key)) {
+        totalReplaced++;
+        updatedStitches.add(expanded[si].copyWith(
+          kind: newKind,
+          name: newStitchName,
+          count: newKind == 'chain' ? newCount : 1,
+        ));
+      } else {
+        updatedStitches.add(expanded[si]);
+      }
+    }
+
+    final magicStitches = round.stitches.where((s) => s.kind == 'magicRing').toList();
+    rounds[i] = round.copyWith(stitches: [...magicStitches, ...updatedStitches]);
+    visualRi++;
+  }
+
+  final connected = assignConnections(rounds);
+  return ReplaceStitchResult(
+    updatedChart: chart.copyWith(patternRounds: connected),
+    replacedCount: totalReplaced,
+  );
+}

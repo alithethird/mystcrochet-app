@@ -190,6 +190,34 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                       Text(stitch.name, style: const TextStyle(fontSize: 12)),
                   onTap: () {
                     final editState = ref.read(editModeProvider);
+
+                    // If multiple stitches are selected, replace all selected stitches
+                    if (editState.selectedStitchKeys.isNotEmpty) {
+                      final chartNotifier = ref.read(chartProvider.notifier);
+                      final result = replaceSelectedStitches(
+                        chart: chartNotifier.chart,
+                        selectedKeys: editState.selectedStitchKeys,
+                        newStitchName: stitch.name,
+                      );
+
+                      if (result.replacedCount > 0) {
+                        chartNotifier.setChart(result.updatedChart, recordUndo: true);
+                        ref.read(editModeProvider.notifier).clearSelection();
+                        ref.read(editModeProvider.notifier).clearReplaceTarget();
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '${result.replacedCount} adet seçili ilmek "${stitch.name}" ile değiştirildi.',
+                            ),
+                            backgroundColor: const Color(0xFF16A34A),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
                     if (editState.mode == EditMode.replace) {
                       if (editState.replaceStitchName == null) {
                         ScaffoldMessenger.of(context).hideCurrentSnackBar();
