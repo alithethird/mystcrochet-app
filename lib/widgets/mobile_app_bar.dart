@@ -13,6 +13,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final VoidCallback onExportPng;
   final VoidCallback onTextView;
   final VoidCallback onOpenDrawer;
+  final VoidCallback? onTutorial;
 
   const MobileAppBar({
     super.key,
@@ -23,6 +24,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
     required this.onExportPng,
     required this.onTextView,
     required this.onOpenDrawer,
+    this.onTutorial,
   });
 
   @override
@@ -101,6 +103,9 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                         case 'text_view':
                           onTextView();
                           break;
+                        case 'tutorial':
+                          onTutorial?.call();
+                          break;
                       }
                     },
                     itemBuilder: (context) => [
@@ -177,6 +182,19 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                             SizedBox(width: 8),
                             Expanded(
                               child: Text('Veri Görünümü (JSON)',
+                                  style: TextStyle(fontSize: 13)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'tutorial',
+                        child: Row(
+                          children: [
+                            Icon(Icons.help_outline, size: 18),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text('Kullanım Rehberi',
                                   style: TextStyle(fontSize: 13)),
                             ),
                           ],

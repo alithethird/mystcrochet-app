@@ -19,6 +19,7 @@ import 'services/local_design_service.dart';
 import 'widgets/build_version_badge.dart';
 import 'widgets/saved_designs_dialog.dart';
 import 'widgets/mobile_app_bar.dart';
+import 'dialogs/welcome_tutorial_dialog.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,7 @@ class CrochetChartsApp extends ConsumerStatefulWidget {
 }
 
 class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final GlobalKey<VisualChartViewState> _chartKey = GlobalKey<VisualChartViewState>();
   bool _leftOpen = false;
   bool _rightOpen = true;
@@ -41,6 +43,12 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
   void initState() {
     super.initState();
     Future.microtask(() => ref.read(stitchStoreProvider.notifier).load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final navContext = _navigatorKey.currentContext;
+      if (navContext != null && navContext.mounted) {
+        WelcomeTutorialDialog.showIfFirstTime(navContext);
+      }
+    });
   }
 
   void _handleNew(int style) {
@@ -261,6 +269,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
     ];
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Crochet Charts',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -323,6 +332,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                           ),
                           onExportPng: () => _handleExportPng(scaffoldContext),
                           onOpenDrawer: () => Scaffold.of(scaffoldContext).openDrawer(),
+                          onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
                         )
                       : null,
                   drawer: isMobile
@@ -359,6 +369,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                             ),
                           ),
                           onExportPng: () => _handleExportPng(scaffoldContext),
+                          onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
                         ),
                       Expanded(
                         child: Row(

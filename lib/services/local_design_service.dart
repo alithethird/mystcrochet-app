@@ -30,7 +30,7 @@ class SavedDesign {
     totalStitches += chart.visualStitches.length;
 
     return SavedDesign(
-      id: id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: id ?? LocalDesignService.generateId(),
       name: effectiveName,
       updatedAt: DateTime.now(),
       roundCount: chart.patternRounds.length,
@@ -67,6 +67,11 @@ class SavedDesign {
 class LocalDesignService {
   static const String _savedDesignsKey = 'crochet_saved_designs';
   static const String _activeDraftKey = 'crochet_active_draft';
+  static int _idCounter = 0;
+
+  /// Generates a unique ID for saved designs.
+  static String generateId() =>
+      '${DateTime.now().microsecondsSinceEpoch}_${++_idCounter}';
 
   /// Returns all designs saved locally, sorted newest to oldest.
   static Future<List<SavedDesign>> getSavedDesigns() async {
@@ -91,7 +96,7 @@ class LocalDesignService {
     final prefs = await SharedPreferences.getInstance();
     final designs = await getSavedDesigns();
 
-    final targetId = id ?? DateTime.now().millisecondsSinceEpoch.toString();
+    final targetId = id ?? generateId();
     final effectiveName = name ?? (chart.name.trim().isNotEmpty ? chart.name.trim() : 'İsimsiz Tasarım');
     final newDesign = SavedDesign.fromChart(
       chart.copyWith(name: effectiveName),

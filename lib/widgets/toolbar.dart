@@ -11,6 +11,7 @@ class AppToolbar extends ConsumerWidget {
   final VoidCallback onTextView;
   final VoidCallback? onExportPng;
   final VoidCallback? onSavedDesigns;
+  final VoidCallback? onTutorial;
 
   const AppToolbar({
     super.key,
@@ -20,6 +21,7 @@ class AppToolbar extends ConsumerWidget {
     required this.onTextView,
     this.onExportPng,
     this.onSavedDesigns,
+    this.onTutorial,
   });
 
   @override
@@ -139,6 +141,14 @@ class AppToolbar extends ConsumerWidget {
         onPressed: onExportPng,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
+      if (onTutorial != null)
+        IconButton(
+          key: const ValueKey('toolbar_tutorial'),
+          icon: const Icon(Icons.help_outline, size: 20),
+          tooltip: 'Kullanım Rehberi',
+          onPressed: onTutorial,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
     ];
 
     final chartNameText = EditableChartTitle(
