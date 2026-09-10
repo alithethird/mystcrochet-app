@@ -1721,10 +1721,11 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     ),
           if (chart.starterStitchName != null)
             Positioned(
-              left: 20,
-              top: 8,
+              left: MediaQuery.sizeOf(context).width < 750 ? 12.0 : 50.0,
+              top: 6.0,
               child: Builder(
                 builder: (context) {
+                  final isMobile = MediaQuery.sizeOf(context).width < 750;
                   final mappedSelected = _selectedRoundIdx != null ? _visualToChartRound[_selectedRoundIdx!] : null;
                   final activeIdx = (mappedSelected != null && mappedSelected < rounds.length)
                       ? mappedSelected
@@ -1737,7 +1738,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                   final currentOffset = activeRound?.radiusOffset ?? 0.0;
                   return Container(
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width - 32,
+                      maxWidth: MediaQuery.sizeOf(context).width - (isMobile ? 24.0 : 64.0),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
