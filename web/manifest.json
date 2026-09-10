@@ -1,12 +1,12 @@
 {
-    "name": "crochet_charts",
-    "short_name": "crochet_charts",
+    "name": "Crochet Charts",
+    "short_name": "Crochet Charts",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#FFFFFF",
+    "theme_color": "#FFFFFF",
+    "description": "A crochet chart editor for creating and visualizing crochet patterns",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

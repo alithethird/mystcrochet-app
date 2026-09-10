@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'utils/pwa_utils.dart';
 import 'models/guidelines.dart';
 import 'providers/chart_provider.dart';
 import 'providers/edit_mode_provider.dart';
@@ -307,70 +310,92 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
             autofocus: true,
             child: Builder(
               builder: (scaffoldContext) {
-                final isMobile = MediaQuery.sizeOf(scaffoldContext).width < 750;
-                return Scaffold(
-                  appBar: isMobile
-                      ? MobileAppBar(
-                          onNew: () => showDialog(
-                            context: scaffoldContext,
-                            builder: (_) => NewChartDialog(onCreated: _handleNew),
-                          ),
-                          onOpen: () => _handleOpen(scaffoldContext),
-                          onSave: () => _handleSave(scaffoldContext),
-                          onSavedDesigns: () => _handleSavedDesigns(scaffoldContext),
-                          onTextView: () => showDialog(
-                            context: scaffoldContext,
-                            builder: (_) => ProviderScope(
-                              overrides: const [],
-                              child: Builder(
-                                builder: (ctx) => TextViewDialog(
-                                  onClose: () => Navigator.pop(ctx),
-                                  onOpenFile: () => _handleOpen(scaffoldContext),
+                final mediaQuery = MediaQuery.of(scaffoldContext);
+                final isMobile = mediaQuery.size.width < 750;
+
+                // Ensure proper top padding under notification / status bar
+                double topPadding = math.max(mediaQuery.padding.top, mediaQuery.viewPadding.top);
+                final isMobilePlatform = defaultTargetPlatform == TargetPlatform.android ||
+                    defaultTargetPlatform == TargetPlatform.iOS;
+                if (topPadding == 0 && (isStandalonePwa() || (isMobile && isMobilePlatform))) {
+                  topPadding = defaultTargetPlatform == TargetPlatform.iOS ? 44.0 : 28.0;
+                }
+
+                final effectiveMediaQuery = topPadding > mediaQuery.padding.top
+                    ? mediaQuery.copyWith(
+                        padding: mediaQuery.padding.copyWith(top: topPadding),
+                        viewPadding: mediaQuery.viewPadding.copyWith(top: topPadding),
+                      )
+                    : mediaQuery;
+
+                return MediaQuery(
+                  data: effectiveMediaQuery,
+                  child: Scaffold(
+                    appBar: isMobile
+                        ? MobileAppBar(
+                            onNew: () => showDialog(
+                              context: scaffoldContext,
+                              builder: (_) => NewChartDialog(onCreated: _handleNew),
+                            ),
+                            onOpen: () => _handleOpen(scaffoldContext),
+                            onSave: () => _handleSave(scaffoldContext),
+                            onSavedDesigns: () => _handleSavedDesigns(scaffoldContext),
+                            onTextView: () => showDialog(
+                              context: scaffoldContext,
+                              builder: (_) => ProviderScope(
+                                overrides: const [],
+                                child: Builder(
+                                  builder: (ctx) => TextViewDialog(
+                                    onClose: () => Navigator.pop(ctx),
+                                    onOpenFile: () => _handleOpen(scaffoldContext),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          onExportPng: () => _handleExportPng(scaffoldContext),
-                          onOpenDrawer: () => Scaffold.of(scaffoldContext).openDrawer(),
-                          onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
-                        )
-                      : null,
-                  drawer: isMobile
-                      ? Drawer(
-                          width: 280,
-                          child: SafeArea(
-                            child: StitchPalette(
-                              onClose: () => Navigator.of(scaffoldContext).pop(),
-                            ),
-                          ),
-                        )
-                      : null,
-                  body: Column(
-                    children: [
-                      if (!isMobile)
-                        AppToolbar(
-                          onNew: () => showDialog(
-                            context: scaffoldContext,
-                            builder: (_) => NewChartDialog(onCreated: _handleNew),
-                          ),
-                          onOpen: () => _handleOpen(scaffoldContext),
-                          onSave: () => _handleSave(scaffoldContext),
-                          onSavedDesigns: () => _handleSavedDesigns(scaffoldContext),
-                          onTextView: () => showDialog(
-                            context: scaffoldContext,
-                            builder: (_) => ProviderScope(
-                              overrides: const [],
-                              child: Builder(
-                                builder: (ctx) => TextViewDialog(
-                                  onClose: () => Navigator.pop(ctx),
-                                  onOpenFile: () => _handleOpen(scaffoldContext),
-                                ),
+                            onExportPng: () => _handleExportPng(scaffoldContext),
+                            onOpenDrawer: () => Scaffold.of(scaffoldContext).openDrawer(),
+                            onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
+                          )
+                        : null,
+                    drawer: isMobile
+                        ? Drawer(
+                            width: 280,
+                            child: SafeArea(
+                              child: StitchPalette(
+                                onClose: () => Navigator.of(scaffoldContext).pop(),
                               ),
                             ),
+                          )
+                        : null,
+                    body: Column(
+                      children: [
+                        if (!isMobile)
+                          SafeArea(
+                            bottom: false,
+                            child: AppToolbar(
+                              onNew: () => showDialog(
+                                context: scaffoldContext,
+                                builder: (_) => NewChartDialog(onCreated: _handleNew),
+                              ),
+                              onOpen: () => _handleOpen(scaffoldContext),
+                              onSave: () => _handleSave(scaffoldContext),
+                              onSavedDesigns: () => _handleSavedDesigns(scaffoldContext),
+                              onTextView: () => showDialog(
+                                context: scaffoldContext,
+                                builder: (_) => ProviderScope(
+                                  overrides: const [],
+                                  child: Builder(
+                                    builder: (ctx) => TextViewDialog(
+                                      onClose: () => Navigator.pop(ctx),
+                                      onOpenFile: () => _handleOpen(scaffoldContext),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              onExportPng: () => _handleExportPng(scaffoldContext),
+                              onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
+                            ),
                           ),
-                          onExportPng: () => _handleExportPng(scaffoldContext),
-                          onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
-                        ),
                       Expanded(
                         child: Row(
                           children: [
@@ -434,8 +459,9 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                       ),
                     ],
                   ),
-                );
-              },
+                ),
+              );
+            },
             ),
       ),
     ),
