@@ -1749,7 +1749,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                   final currentOffset = activeRound?.radiusOffset ?? 0.0;
                   return Container(
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width - (isMobile ? 24.0 : 64.0),
+                      maxWidth: max(80.0, MediaQuery.sizeOf(context).width - (isMobile ? 64.0 : 100.0)),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(

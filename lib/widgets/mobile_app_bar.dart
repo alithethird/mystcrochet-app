@@ -16,6 +16,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final VoidCallback onExportPng;
   final VoidCallback onTextView;
   final VoidCallback onOpenDrawer;
+  final VoidCallback? onOpenEndDrawer;
   final VoidCallback? onTutorial;
 
   const MobileAppBar({
@@ -27,6 +28,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
     required this.onExportPng,
     required this.onTextView,
     required this.onOpenDrawer,
+    this.onOpenEndDrawer,
     this.onTutorial,
   });
 
@@ -87,11 +89,23 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                         const BoxConstraints(minWidth: 36, minHeight: 36),
                     padding: EdgeInsets.zero,
                   ),
+                  if (onOpenEndDrawer != null)
+                    IconButton(
+                      icon: const Icon(Icons.tune, size: 20),
+                      tooltip: '${strings.properties} & ${strings.shape}',
+                      onPressed: onOpenEndDrawer,
+                      constraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      padding: EdgeInsets.zero,
+                    ),
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, size: 22),
                     tooltip: strings.settings,
                     onSelected: (val) {
                       switch (val) {
+                        case 'properties':
+                          onOpenEndDrawer?.call();
+                          break;
                         case 'new':
                           onNew();
                           break;
@@ -197,6 +211,24 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                           ],
                         ),
                       ),
+                      if (onOpenEndDrawer != null) ...[
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'properties',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.tune, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${strings.properties} & ${strings.shape}',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const PopupMenuDivider(),
                       PopupMenuItem(
                         value: 'language',

@@ -73,8 +73,7 @@ class PropertiesPanel extends ConsumerWidget {
           children: [
             const Text('Yakınlaştırma:', style: TextStyle(fontSize: 12)),
             const SizedBox(width: 8),
-            SizedBox(
-              width: 80,
+            Expanded(
               child: Slider(
                 value: editState.zoom,
                 min: 0.25,
@@ -82,7 +81,14 @@ class PropertiesPanel extends ConsumerWidget {
                 onChanged: (v) => ref.read(editModeProvider.notifier).setZoom(v),
               ),
             ),
-            Text('${(editState.zoom * 100).round()}%', style: const TextStyle(fontSize: 12)),
+            SizedBox(
+              width: 44,
+              child: Text(
+                '${(editState.zoom * 100).round()}%',
+                textAlign: TextAlign.end,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
           ],
         ),
         const Divider(height: 20),
@@ -346,11 +352,11 @@ class _ShapePanelState extends ConsumerState<ShapePanel> {
           onChanged: (v) => _switchShape(v ?? 0),
         ),
         const SizedBox(height: 8),
+        const Text('Köşe yuvarlama:',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
         Row(
           children: [
-            const Text('Köşe yuvarlama:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-            const SizedBox(width: 8),
             SizedBox(
               width: 60,
               child: Focus(

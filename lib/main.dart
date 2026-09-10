@@ -39,9 +39,10 @@ class CrochetChartsApp extends ConsumerStatefulWidget {
 
 class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey<VisualChartViewState> _chartKey = GlobalKey<VisualChartViewState>();
   bool _leftOpen = false;
-  bool _rightOpen = true;
+  bool _rightOpen = false;
 
   @override
   void initState() {
@@ -333,6 +334,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                 return MediaQuery(
                   data: effectiveMediaQuery,
                   child: Scaffold(
+                    key: _scaffoldKey,
                     appBar: isMobile
                         ? MobileAppBar(
                             onNew: () => showDialog(
@@ -355,15 +357,27 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                               ),
                             ),
                             onExportPng: () => _handleExportPng(scaffoldContext),
-                            onOpenDrawer: () => Scaffold.of(scaffoldContext).openDrawer(),
+                            onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+                            onOpenEndDrawer: () => _scaffoldKey.currentState?.openEndDrawer(),
                             onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
                           )
                         : null,
                     drawer: isMobile
                         ? Drawer(
-                            width: 280,
+                            width: 300,
                             child: SafeArea(
                               child: StitchPalette(
+                                onClose: () => Navigator.of(scaffoldContext).pop(),
+                              ),
+                            ),
+                          )
+                        : null,
+                    endDrawer: isMobile
+                        ? Drawer(
+                            width: 300,
+                            child: SafeArea(
+                              child: _RightPanel(
+                                tabs: tabItems,
                                 onClose: () => Navigator.of(scaffoldContext).pop(),
                               ),
                             ),
@@ -443,6 +457,47 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                                         ),
                                       ),
                                     ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: Material(
+                                      elevation: 2,
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(6),
+                                        onTap: () {
+                                          if (isMobile) {
+                                            _scaffoldKey.currentState?.openEndDrawer();
+                                          } else {
+                                            setState(() => _rightOpen = !_rightOpen);
+                                          }
+                                        },
+                                        child: Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: _rightOpen && !isMobile
+                                                ? const Color(0xFFEFF6FF)
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: _rightOpen && !isMobile
+                                                  ? const Color(0xFF3B82F6)
+                                                  : const Color(0xFFDDDDDD),
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Icon(
+                                            Icons.tune,
+                                            size: 20,
+                                            color: _rightOpen && !isMobile
+                                                ? const Color(0xFF3B82F6)
+                                                : const Color(0xFF4B5563),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                   const Positioned(
                                     bottom: 8,
                                     right: 8,
@@ -451,13 +506,16 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                                 ],
                               ),
                             ),
+                            if (!isMobile && _rightOpen)
+                              SizedBox(
+                                width: 300,
+                                child: _RightPanel(
+                                  tabs: tabItems,
+                                  onClose: () => setState(() => _rightOpen = false),
+                                ),
+                              ),
                           ],
                         ),
-                      ),
-                      _BottomPanel(
-                        isOpen: _rightOpen,
-                        tabs: tabItems,
-                        onToggle: () => setState(() => _rightOpen = !_rightOpen),
                       ),
                     ],
                   ),
@@ -472,33 +530,26 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
   }
 }
 
-class _BottomPanel extends StatefulWidget {
-  final bool isOpen;
+class _RightPanel extends StatefulWidget {
   final List<Map<String, dynamic>> tabs;
-  final VoidCallback onToggle;
+  final VoidCallback onClose;
 
-  const _BottomPanel({
-    required this.isOpen,
+  const _RightPanel({
     required this.tabs,
-    required this.onToggle,
+    required this.onClose,
   });
 
   @override
-  State<_BottomPanel> createState() => _BottomPanelState();
+  State<_RightPanel> createState() => _RightPanelState();
 }
 
-class _BottomPanelState extends State<_BottomPanel> with SingleTickerProviderStateMixin {
+class _RightPanelState extends State<_RightPanel> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: widget.tabs.length, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        if (widget.isOpen == false) widget.onToggle();
-      }
-    });
   }
 
   @override
@@ -509,82 +560,58 @@ class _BottomPanelState extends State<_BottomPanel> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      height: widget.isOpen ? MediaQuery.of(context).size.height * 0.35 : 32,
+    return Container(
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFDDDDDD))),
         color: Colors.white,
+        border: Border(left: BorderSide(color: Color(0xFFDDDDDD))),
       ),
-      child: widget.isOpen
-          ? Column(
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0xFFDDDDDD))),
-                    color: Color(0xFFF5F5F5),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TabBar(
-                          controller: _tabController,
-                          isScrollable: true,
-                          tabAlignment: TabAlignment.start,
-                          labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                          labelColor: const Color(0xFF1A1A1A),
-                          unselectedLabelColor: Colors.grey,
-                          indicatorColor: const Color(0xFF3B82F6),
-                          tabs: [
-                            ...widget.tabs.map((t) => Tab(text: t['label'] as String)),
-                          ],
-                        ),
-                      ),
-                      InkWell(
-                        onTap: widget.onToggle,
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
-                          child: const Text('\u25BC', style: TextStyle(fontSize: 12, color: Color(0xFF999999))),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      ...widget.tabs.map((t) => Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SingleChildScrollView(child: t['widget'] as Widget),
-                      )),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : Container(
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xFFDDDDDD))),
-                color: Color(0xFFF5F5F5),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  InkWell(
-                    onTap: widget.onToggle,
-                    child: Container(
-                      width: 36,
-                      height: 32,
-                      alignment: Alignment.center,
-                      child: const Text('\u25B2', style: TextStyle(fontSize: 12, color: Color(0xFF999999))),
-                    ),
-                  ),
-                ],
-              ),
+      child: Column(
+        children: [
+          Container(
+            height: 44,
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFDDDDDD))),
+              color: Color(0xFFF9FAFB),
             ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    labelColor: const Color(0xFF1F2937),
+                    unselectedLabelColor: const Color(0xFF6B7280),
+                    indicatorColor: const Color(0xFF3B82F6),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    tabs: [
+                      ...widget.tabs.map((t) => Tab(text: t['label'] as String)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: Color(0xFF6B7280)),
+                  tooltip: 'Kapat',
+                  onPressed: widget.onClose,
+                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  padding: EdgeInsets.zero,
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                ...widget.tabs.map((t) => SingleChildScrollView(
+                      padding: const EdgeInsets.all(12),
+                      child: t['widget'] as Widget,
+                    )),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
