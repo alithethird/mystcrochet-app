@@ -111,11 +111,22 @@ class PatternRound {
   /// round relative to its default spacing from the previous round.
   final double? radiusOffset;
 
+  /// Shape of this round: number of polygon sides.
+  /// 0 = circle, 3 = triangle, 4 = square, 5 = pentagon, 6 = hexagon, etc.
+  /// null = inherit from chart guidelines.
+  final int? sides;
+
+  /// Corner radius ratio (0.0 to 1.0) if polygonal.
+  /// null = inherit from chart guidelines.
+  final double? cornerRatio;
+
   PatternRound({
     required this.number,
     required this.stitches,
     this.isMagicRing = false,
     this.radiusOffset,
+    this.sides,
+    this.cornerRatio,
   });
 
   factory PatternRound.fromJson(Map<String, dynamic> json) {
@@ -127,6 +138,8 @@ class PatternRound {
           [],
       isMagicRing: json['isMagicRing'] as bool? ?? false,
       radiusOffset: (json['radiusOffset'] as num?)?.toDouble(),
+      sides: json['sides'] as int?,
+      cornerRatio: (json['cornerRatio'] as num?)?.toDouble(),
     );
   }
 
@@ -136,6 +149,8 @@ class PatternRound {
       'stitches': stitches.map((s) => s.toJson()).toList(),
       'isMagicRing': isMagicRing,
       if (radiusOffset != null) 'radiusOffset': radiusOffset,
+      if (sides != null) 'sides': sides,
+      if (cornerRatio != null) 'cornerRatio': cornerRatio,
     };
   }
 
@@ -145,12 +160,18 @@ class PatternRound {
     bool? isMagicRing,
     double? radiusOffset,
     bool clearRadiusOffset = false,
+    int? sides,
+    bool clearSides = false,
+    double? cornerRatio,
+    bool clearCornerRatio = false,
   }) {
     return PatternRound(
       number: number ?? this.number,
       stitches: stitches ?? this.stitches,
       isMagicRing: isMagicRing ?? this.isMagicRing,
       radiusOffset: clearRadiusOffset ? null : (radiusOffset ?? this.radiusOffset),
+      sides: clearSides ? null : (sides ?? this.sides),
+      cornerRatio: clearCornerRatio ? null : (cornerRatio ?? this.cornerRatio),
     );
   }
 }

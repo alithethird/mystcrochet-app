@@ -5,6 +5,7 @@ import 'item_group.dart';
 import 'guidelines.dart';
 import 'visual_stitch.dart';
 import 'pattern.dart';
+import 'stitch_record.dart';
 
 class Chart {
   final String name;
@@ -17,6 +18,7 @@ class Chart {
   final List<VisualStitch> visualStitches;
   final List<PatternRound> patternRounds;
   final String? starterStitchName;
+  final List<StitchRecord>? embeddedStitches;
 
   Chart({
     this.name = '',
@@ -29,6 +31,7 @@ class Chart {
     this.visualStitches = const [],
     this.patternRounds = const [],
     this.starterStitchName,
+    this.embeddedStitches,
   });
 
   factory Chart.defaultChart() {
@@ -50,6 +53,7 @@ class Chart {
     final groupsRaw = json['groups'] as List? ?? [];
     final visualStitchesRaw = json['visualStitches'] as List? ?? [];
     final patternRoundsRaw = json['patternRounds'] as List? ?? [];
+    final stitchesRaw = (json['embeddedStitches'] ?? json['stitches']) as List? ?? [];
 
     return Chart(
       name: json['name'] as String? ?? '',
@@ -65,6 +69,9 @@ class Chart {
       visualStitches: visualStitchesRaw.map((v) => VisualStitch.fromJson(v as Map<String, dynamic>)).toList(),
       patternRounds: patternRoundsRaw.map((r) => PatternRound.fromJson(r as Map<String, dynamic>)).toList(),
       starterStitchName: json['starterStitchName'] as String?,
+      embeddedStitches: stitchesRaw.isNotEmpty
+          ? stitchesRaw.map((s) => StitchRecord.fromJson(s as Map<String, dynamic>)).toList()
+          : null,
     );
   }
 
@@ -80,6 +87,8 @@ class Chart {
       'visualStitches': visualStitches.map((v) => v.toJson()).toList(),
       'patternRounds': patternRounds.map((r) => r.toJson()).toList(),
       if (starterStitchName != null) 'starterStitchName': starterStitchName,
+      if (embeddedStitches != null && embeddedStitches!.isNotEmpty)
+        'stitches': embeddedStitches!.map((s) => s.toJson()).toList(),
     };
   }
 
@@ -95,6 +104,8 @@ class Chart {
     List<PatternRound>? patternRounds,
     String? starterStitchName,
     bool clearStarterStitch = false,
+    List<StitchRecord>? embeddedStitches,
+    bool clearEmbeddedStitches = false,
   }) {
     return Chart(
       name: name ?? this.name,
@@ -107,6 +118,9 @@ class Chart {
       visualStitches: visualStitches ?? this.visualStitches,
       patternRounds: patternRounds ?? this.patternRounds,
       starterStitchName: clearStarterStitch ? null : (starterStitchName ?? this.starterStitchName),
+      embeddedStitches: clearEmbeddedStitches
+          ? null
+          : (embeddedStitches ?? this.embeddedStitches),
     );
   }
 }

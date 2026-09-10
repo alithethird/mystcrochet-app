@@ -89,70 +89,107 @@ class PropertiesPanel extends ConsumerWidget {
             final round = entry.value;
             final offset = round.radiusOffset ?? 0.0;
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 65,
-                    child: Text('Tur ${round.number}:',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 50,
+                        child: Text('Tur ${round.number}:',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                      ),
+                      IconButton(
+                        key: ValueKey('prop_contract_round_${round.number}'),
+                        icon: const Icon(Icons.remove, size: 14),
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        padding: EdgeInsets.zero,
+                        tooltip: 'Turu Daralt',
+                        onPressed: () {
+                          final notifier = ref.read(chartProvider.notifier);
+                          final rounds = List<PatternRound>.from(chart.patternRounds);
+                          final newOffset = offset - 5.0;
+                          rounds[idx] = rounds[idx].copyWith(
+                            radiusOffset: newOffset == 0.0 ? null : newOffset,
+                            clearRadiusOffset: newOffset == 0.0,
+                          );
+                          notifier.setChart(chart.copyWith(patternRounds: rounds));
+                        },
+                      ),
+                      SizedBox(
+                        width: 44,
+                        child: Text(
+                          '${offset > 0 ? '+' : ''}${offset.round()} px',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                      IconButton(
+                        key: ValueKey('prop_expand_round_${round.number}'),
+                        icon: const Icon(Icons.add, size: 14),
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                        padding: EdgeInsets.zero,
+                        tooltip: 'Turu Genişlet',
+                        onPressed: () {
+                          final notifier = ref.read(chartProvider.notifier);
+                          final rounds = List<PatternRound>.from(chart.patternRounds);
+                          final newOffset = offset + 5.0;
+                          rounds[idx] = rounds[idx].copyWith(
+                            radiusOffset: newOffset == 0.0 ? null : newOffset,
+                            clearRadiusOffset: newOffset == 0.0,
+                          );
+                          notifier.setChart(chart.copyWith(patternRounds: rounds));
+                        },
+                      ),
+                      if (offset != 0.0)
+                        IconButton(
+                          key: ValueKey('prop_reset_round_${round.number}'),
+                          icon: const Icon(Icons.refresh, size: 14),
+                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          padding: EdgeInsets.zero,
+                          tooltip: 'Varsayılana Sıfırla',
+                          onPressed: () {
+                            final notifier = ref.read(chartProvider.notifier);
+                            final rounds = List<PatternRound>.from(chart.patternRounds);
+                            rounds[idx] = rounds[idx].copyWith(clearRadiusOffset: true);
+                            notifier.setChart(chart.copyWith(patternRounds: rounds));
+                          },
+                        ),
+                    ],
                   ),
-                  IconButton(
-                    key: ValueKey('prop_contract_round_${round.number}'),
-                    icon: const Icon(Icons.remove, size: 14),
-                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                    padding: EdgeInsets.zero,
-                    tooltip: 'Turu Daralt',
-                    onPressed: () {
-                      final notifier = ref.read(chartProvider.notifier);
-                      final rounds = List<PatternRound>.from(chart.patternRounds);
-                      final newOffset = offset - 5.0;
-                      rounds[idx] = rounds[idx].copyWith(
-                        radiusOffset: newOffset == 0.0 ? null : newOffset,
-                        clearRadiusOffset: newOffset == 0.0,
-                      );
-                      notifier.setChart(chart.copyWith(patternRounds: rounds));
-                    },
+                  Row(
+                    children: [
+                      const SizedBox(width: 16),
+                      const Text('Şekil: ', style: TextStyle(fontSize: 10, color: Color(0xFF666666))),
+                      DropdownButtonHideUnderline(
+                        child: DropdownButton<int?>(
+                          key: ValueKey('prop_round_shape_${round.number}'),
+                          value: round.sides,
+                          isDense: true,
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF333333)),
+                          items: const [
+                            DropdownMenuItem(value: null, child: Text('Varsayılan', style: TextStyle(fontSize: 11))),
+                            DropdownMenuItem(value: 0, child: Text('Daire', style: TextStyle(fontSize: 11))),
+                            DropdownMenuItem(value: 3, child: Text('Üçgen', style: TextStyle(fontSize: 11))),
+                            DropdownMenuItem(value: 4, child: Text('Kare', style: TextStyle(fontSize: 11))),
+                            DropdownMenuItem(value: 5, child: Text('Beşgen', style: TextStyle(fontSize: 11))),
+                            DropdownMenuItem(value: 6, child: Text('Altıgen', style: TextStyle(fontSize: 11))),
+                            DropdownMenuItem(value: 8, child: Text('Sekizgen', style: TextStyle(fontSize: 11))),
+                          ],
+                          onChanged: (newSides) {
+                            final notifier = ref.read(chartProvider.notifier);
+                            final rounds = List<PatternRound>.from(chart.patternRounds);
+                            rounds[idx] = rounds[idx].copyWith(
+                              sides: newSides,
+                              clearSides: newSides == null,
+                            );
+                            notifier.setChart(chart.copyWith(patternRounds: rounds));
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(
-                    width: 48,
-                    child: Text(
-                      '${offset > 0 ? '+' : ''}${offset.round()} px',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                  ),
-                  IconButton(
-                    key: ValueKey('prop_expand_round_${round.number}'),
-                    icon: const Icon(Icons.add, size: 14),
-                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                    padding: EdgeInsets.zero,
-                    tooltip: 'Turu Genişlet',
-                    onPressed: () {
-                      final notifier = ref.read(chartProvider.notifier);
-                      final rounds = List<PatternRound>.from(chart.patternRounds);
-                      final newOffset = offset + 5.0;
-                      rounds[idx] = rounds[idx].copyWith(
-                        radiusOffset: newOffset == 0.0 ? null : newOffset,
-                        clearRadiusOffset: newOffset == 0.0,
-                      );
-                      notifier.setChart(chart.copyWith(patternRounds: rounds));
-                    },
-                  ),
-                  if (offset != 0.0)
-                    IconButton(
-                      key: ValueKey('prop_reset_round_${round.number}'),
-                      icon: const Icon(Icons.refresh, size: 14),
-                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                      padding: EdgeInsets.zero,
-                      tooltip: 'Varsayılana Sıfırla',
-                      onPressed: () {
-                        final notifier = ref.read(chartProvider.notifier);
-                        final rounds = List<PatternRound>.from(chart.patternRounds);
-                        rounds[idx] = rounds[idx].copyWith(clearRadiusOffset: true);
-                        notifier.setChart(chart.copyWith(patternRounds: rounds));
-                      },
-                    ),
                 ],
               ),
             );

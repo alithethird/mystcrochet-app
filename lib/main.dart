@@ -178,7 +178,8 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
             ),
           );
 
-          final success = await ChartFileService.saveChart(currentChart, fileName);
+          final stitchStore = ref.read(stitchStoreProvider);
+          final success = await ChartFileService.saveChart(currentChart, fileName, stitchStore: stitchStore);
           if (success) {
             messenger.showSnackBar(
               SnackBar(
@@ -211,6 +212,9 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
       debugPrint('[OPEN_CHART] Dosya okundu: ${result.fileName}, tur sayısı: ${result.chart.patternRounds.length}, başlangıç: ${result.chart.starterStitchName}');
 
       ref.read(chartProvider.notifier).loadChart(result.chart);
+      if (result.chart.embeddedStitches != null && result.chart.embeddedStitches!.isNotEmpty) {
+        ref.read(stitchStoreProvider).registerStitches(result.chart.embeddedStitches!);
+      }
       debugPrint('[OPEN_CHART] Grafik başarıyla yüklendi ve tuval kamerasını sıfırladı.');
 
       messenger.showSnackBar(

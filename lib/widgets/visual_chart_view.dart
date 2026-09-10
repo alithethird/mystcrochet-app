@@ -52,7 +52,19 @@ class PosStitch {
   // unused (set to 0). Set when the round shape is a polygon so that drag and
   // tap-slot operations can move along true perimeter length.
   final double perimeterS;
-  const PosStitch({required this.x, required this.y, required this.angle, required this.stitch, required this.radius, this.renderAngle, this.perimeterS = 0});
+  final int sides;
+  final double cornerRatio;
+  const PosStitch({
+    required this.x,
+    required this.y,
+    required this.angle,
+    required this.stitch,
+    required this.radius,
+    this.renderAngle,
+    this.perimeterS = 0,
+    this.sides = 0,
+    this.cornerRatio = 0.15,
+  });
 }
 typedef _PosStitch = PosStitch;
 
@@ -124,15 +136,19 @@ double groupW(List<PatternStitch> g, double chainW, double chainH, double chainF
 List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, double chainW, double chainH, double chainFan, StitchStoreNotifier notifier, {required int sides, required double cornerRatio}) {
   final result = <List<_PosStitch>>[];
   if (rounds.isEmpty) return result;
-  final polygonMode = sides >= 3;
   double baseR = ringRadius;
   const pad = 5.0;
   final chainGeo = STITCH_GEOMETRY['ch'];
   final chainInset = chainGeo != null ? chainGeo.height * stitchScale : 4.2;
   List<double>? prevAngles;
   double? prevRadius;
+  int? prevSides;
+  double? prevCornerRatio;
 
   for (final round in rounds) {
+    final roundSides = round.sides ?? sides;
+    final roundCornerRatio = round.cornerRatio ?? cornerRatio;
+    final roundPolygonMode = roundSides >= 3;
     final real = round.stitches.where((s) => s.kind != 'magicRing').toList();
     // Skip only rounds that contain nothing but magic-ring stitches — these are
     // implicit starter rounds, not user-added empty rounds. Empty rounds still
@@ -145,8 +161,8 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
       baseR += baseSpacing;
     }
     final radius = baseR + (round.radiusOffset ?? 0);
-    final cr = polygonMode
-        ? pg.polygonCornerRadius(radius, sides, cornerRatio)
+    final cr = roundPolygonMode
+        ? pg.polygonCornerRadius(radius, roundSides, roundCornerRatio)
         : 0.0;
     if (real.isEmpty) {
       // Empty round: reserve an index-aligned slot but place no stitches.
@@ -189,9 +205,9 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
       for (int gi = 0; gi < groups.length; gi++) {
         final g = groups[gi];
         for (final s in g) {
-          if (polygonMode && s.pinnedPerimeter != null) {
+          if (roundPolygonMode && s.pinnedPerimeter != null) {
             groupAngles[gi] =
-                pg.polygonDirectionFromPerimeter(radius, sides, cr, s.pinnedPerimeter!);
+                pg.polygonDirectionFromPerimeter(radius, roundSides, cr, s.pinnedPerimeter!);
             break; // first pin in the group wins
           } else if (s.pinnedAngle != null) {
             groupAngles[gi] = s.pinnedAngle;
@@ -270,7 +286,7 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
           final n = anchorCount[conn] ?? 1;
           // Center the cluster around the anchor: for N groups sharing an
           // anchor, offsets are -(N-1)/2 .. +(N-1)/2 stepped by 18 px.
-          if (polygonMode) {
+          if (roundPolygonMode) {
             spreadPx = (k - (n - 1) / 2) * 18;
           } else {
             a += (k - (n - 1) / 2) * 18 / radius;
@@ -282,11 +298,11 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
           final off = g.length > 1 ? (i - (g.length - 1) / 2) * 6 : 0;
           final isCh = st.kind == 'chain';
           final r = radius - (isCh ? chainInset : 0);
-          final proj = _projectStitch(r, sides, cornerRatio, a,
-              pinnedAngleFor: polygonMode ? null : st.pinnedAngle,
-              pinnedPerimFor: polygonMode ? st.pinnedPerimeter : null,
-              offsetRad: polygonMode ? 0 : (st.angleOffset ?? 0),
-              offsetPx: polygonMode ? spreadPx + off + (st.perimeterOffset ?? 0) : 0);
+          final proj = _projectStitch(r, roundSides, roundCornerRatio, a,
+              pinnedAngleFor: roundPolygonMode ? null : st.pinnedAngle,
+              pinnedPerimFor: roundPolygonMode ? st.pinnedPerimeter : null,
+              offsetRad: roundPolygonMode ? 0 : (st.angleOffset ?? 0),
+              offsetPx: roundPolygonMode ? spreadPx + off + (st.perimeterOffset ?? 0) : 0);
           final nx = proj.x;
           final ny = proj.y;
           // Stitches anchored to a previous-round stitch tilt so their bottoms point
@@ -298,9 +314,10 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
           double? renderAngle;
           if (st.connectsTo != null && prevRadius != null) {
             double ax, ay;
-            if (polygonMode) {
-              final (ap, _) = pg.polygonPointAt(prevRadius, sides, cr,
-                  pg.polygonPerimeterFromDirection(prevRadius, sides, cr, baseA));
+            if (prevSides != null && prevSides >= 3) {
+              final prevCr = pg.polygonCornerRadius(prevRadius, prevSides, prevCornerRatio ?? cornerRatio);
+              final (ap, _) = pg.polygonPointAt(prevRadius, prevSides, prevCr,
+                  pg.polygonPerimeterFromDirection(prevRadius, prevSides, prevCr, baseA));
               ax = ap.dx; ay = ap.dy;
             } else {
               ax = prevRadius * cos(baseA);
@@ -312,7 +329,8 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
           final paDir = proj.dir;
           pos.add(_PosStitch(
               x: nx, y: ny, angle: paDir, stitch: st, radius: radius,
-              renderAngle: renderAngle, perimeterS: proj.s));
+              renderAngle: renderAngle, perimeterS: proj.s,
+              sides: roundSides, cornerRatio: roundCornerRatio));
           curAngles[expIdx + i] = paDir;
         }
         expIdx += g.length;
@@ -320,11 +338,11 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
     } else {
       // Width-proportional placement (first round / fallback)
       final total = groups.fold<double>(0, (a, g) => a + (g[0].kind == 'slipStitch' ? 0 : groupW(g, chainW, chainH, chainFan, isLead: identical(g, groups.first)) + pad));
-      if (polygonMode) {
+      if (roundPolygonMode) {
         // Distribute stitches' total pixel width evenly around the polygon's
         // perimeter. Each group's arclength is groupW (px); conversion to a
         // perimeter position is direct.
-        final perimeterDense = pg.polygonPerimeter(radius, sides, cr);
+        final perimeterDense = pg.polygonPerimeter(radius, roundSides, cr);
         final px2perim = perimeterDense / max(total, 1);
         double cum = 0;
         int expIdx = 0;
@@ -334,12 +352,13 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
             final s = (cum - pad / 2) * px2perim;
             for (int i = 0; i < g.length; i++) {
               final st = g[i];
-              final proj = _projectStitch(radius, sides, cornerRatio, 0,
+              final proj = _projectStitch(radius, roundSides, roundCornerRatio, 0,
                   pinnedPerimFor: st.pinnedPerimeter ?? (s + (st.perimeterOffset ?? 0)),
                   offsetPx: 0);
               pos.add(_PosStitch(
                   x: proj.x, y: proj.y, angle: proj.dir,
-                  stitch: st, radius: radius, perimeterS: proj.s));
+                  stitch: st, radius: radius, perimeterS: proj.s,
+                  sides: roundSides, cornerRatio: roundCornerRatio));
               curAngles[expIdx + i] = proj.dir;
             }
             expIdx += g.length;
@@ -353,12 +372,13 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
             final off = g.length > 1 ? (i - (g.length - 1) / 2) * 6 : 0;
             final isCh = st.kind == 'chain';
             final r = radius - (isCh ? chainInset : 0);
-            final proj = _projectStitch(r, sides, cornerRatio, 0,
+            final proj = _projectStitch(r, roundSides, roundCornerRatio, 0,
                 pinnedPerimFor: st.pinnedPerimeter ?? (s + off + (st.perimeterOffset ?? 0)),
                 offsetPx: 0);
             pos.add(_PosStitch(
                 x: proj.x, y: proj.y, angle: proj.dir,
-                stitch: st, radius: radius, perimeterS: proj.s));
+                stitch: st, radius: radius, perimeterS: proj.s,
+                sides: roundSides, cornerRatio: roundCornerRatio));
             curAngles[expIdx + i] = proj.dir;
           }
           expIdx += g.length;
@@ -373,7 +393,10 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
             final a = -((cum - pad / 2) * px2rad) - pi / 2;
             for (int i = 0; i < g.length; i++) {
               final pa = g[i].pinnedAngle ?? (a + (g[i].angleOffset ?? 0));
-              pos.add(_PosStitch(x: radius * cos(pa), y: radius * sin(pa), angle: pa, stitch: g[i], radius: radius));
+              pos.add(_PosStitch(
+                  x: radius * cos(pa), y: radius * sin(pa), angle: pa,
+                  stitch: g[i], radius: radius,
+                  sides: roundSides, cornerRatio: roundCornerRatio));
               curAngles[expIdx + i] = pa;
             }
             expIdx += g.length;
@@ -388,17 +411,22 @@ List<List<_PosStitch>> _layout(List<PatternRound> rounds, double ringRadius, dou
             final pa = st.pinnedAngle ?? (a + off * px2rad + (st.angleOffset ?? 0));
             final isCh = st.kind == 'chain';
             final r = radius - (isCh ? chainInset : 0);
-            pos.add(_PosStitch(x: r * cos(pa), y: r * sin(pa), angle: pa, stitch: st, radius: radius));
+            pos.add(_PosStitch(
+                x: r * cos(pa), y: r * sin(pa), angle: pa,
+                stitch: st, radius: radius,
+                sides: roundSides, cornerRatio: roundCornerRatio));
             curAngles[expIdx + i] = pa;
           }
           expIdx += g.length;
         }
       }
     }
-result.add(pos);
-     prevAngles = curAngles;
-     prevRadius = radius;
-   }
+    result.add(pos);
+    prevAngles = curAngles;
+    prevRadius = radius;
+    prevSides = roundSides;
+    prevCornerRatio = roundCornerRatio;
+  }
     return result;
 }
 
@@ -770,6 +798,18 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       clearRadiusOffset: newOffset == 0.0,
     );
     notifier.setChart(chart.copyWith(patternRounds: updatedRounds));
+  }
+
+  void _setRoundSides(int roundIdx, int? newSides) {
+    final notifier = ref.read(chartProvider.notifier);
+    final chart = notifier.chart;
+    if (roundIdx < 0 || roundIdx >= chart.patternRounds.length) return;
+    final updatedRounds = List<PatternRound>.from(chart.patternRounds);
+    updatedRounds[roundIdx] = updatedRounds[roundIdx].copyWith(
+      sides: newSides,
+      clearSides: newSides == null,
+    );
+    notifier.setChart(chart.copyWith(patternRounds: updatedRounds), recordUndo: true);
   }
 
   void _deleteLastRound() {
@@ -1156,11 +1196,13 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     }
     if (_dragRoundIdx != null) {
       final dragged = positioned[_dragRoundIdx!][_dragStitchIdx!];
-      _dragSides = sides;
-      _dragCornerRatio = cornerRatio;
+      final stSides = dragged.sides;
+      final stCornerRatio = dragged.cornerRatio;
+      _dragSides = stSides;
+      _dragCornerRatio = stCornerRatio;
       _dragPinned = dragged.stitch.connectsTo == null;
       debugPrint('STARTDRAG grabbed ri=$_dragRoundIdx si=$_dragStitchIdx pinned=$_dragPinned angle=${dragged.angle}');
-      if (sides >= 3) {
+      if (stSides >= 3) {
         final prevPerimOffset = dragged.stitch.perimeterOffset ?? 0;
         _dragBasePerim = dragged.perimeterS - prevPerimOffset;
       } else {
@@ -1575,6 +1617,33 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                                 borderRadius: BorderRadius.circular(3),
                               ),
                               child: const Icon(Icons.add, size: 12, color: Color(0xFF333333)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            height: 12,
+                            width: 1,
+                            color: const Color(0xFFCCCCCC),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text('Şekil:', style: TextStyle(fontSize: 10, color: Color(0xFF666666))),
+                          const SizedBox(width: 4),
+                          DropdownButtonHideUnderline(
+                            child: DropdownButton<int?>(
+                              key: const ValueKey('canvas_round_shape_dropdown'),
+                              value: activeRound.sides,
+                              isDense: true,
+                              style: const TextStyle(fontSize: 10, color: Color(0xFF333333)),
+                              items: const [
+                                DropdownMenuItem(value: null, child: Text('Varsayılan', style: TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 0, child: Text('Daire', style: TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 3, child: Text('Üçgen', style: TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 4, child: Text('Kare', style: TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 5, child: Text('Beşgen', style: TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 6, child: Text('Altıgen', style: TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 8, child: Text('Sekizgen', style: TextStyle(fontSize: 10))),
+                              ],
+                              onChanged: (val) => _setRoundSides(activeIdx, val),
                             ),
                           ),
                         ],
@@ -2059,7 +2128,6 @@ class _GuidePainter extends CustomPainter {
     guide.style = PaintingStyle.stroke;
     const dash = 3.0;
     const gap = 5.0;
-    final polygonMode = sides >= 3;
     int ri = 0;
     for (int i = 0; i < rounds.length; i++) {
       // Skip only rounds that contain nothing but magic-ring stitches; empty
@@ -2068,12 +2136,15 @@ class _GuidePainter extends CustomPainter {
       if (magicOnly) continue;
       ri++;
       final r = roundStarts[ri];
+      final roundSides = rounds[i].sides ?? sides;
+      final roundCornerRatio = rounds[i].cornerRatio ?? cornerRatio;
+      final roundPolygonMode = roundSides >= 3;
       final Path path;
       final double labelY;
-      if (polygonMode) {
-        final cr = pg.polygonCornerRadius(r, sides, cornerRatio);
-        path = pg.polygonPath(r, sides, cr);
-        labelY = -pg.polygonApothem(r, sides) - 6;
+      if (roundPolygonMode) {
+        final cr = pg.polygonCornerRadius(r, roundSides, roundCornerRatio);
+        path = pg.polygonPath(r, roundSides, cr);
+        labelY = -pg.polygonApothem(r, roundSides) - 6;
       } else {
         path = Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: r));
         labelY = -r - 6;

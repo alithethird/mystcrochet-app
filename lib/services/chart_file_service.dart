@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import '../models/chart.dart';
+import '../models/stitch_record.dart';
+import '../providers/stitch_provider.dart';
 import '../utils/serialization.dart';
 import 'chart_file_service_stub.dart'
     if (dart.library.html) 'chart_file_service_web.dart'
@@ -15,10 +17,51 @@ class ChartLoadResult {
 }
 
 abstract class ChartFileService {
+  /// Prepares [chart] by embedding definitions for all stitches used in it.
+  static Chart prepareChartWithUsedStitches(Chart chart, [StitchStoreNotifier? stitchStore]) {
+    final usedNames = <String>{};
+    if (chart.starterStitchName != null && chart.starterStitchName!.isNotEmpty) {
+      usedNames.add(chart.starterStitchName!);
+    }
+    for (final r in chart.patternRounds) {
+      for (final s in r.stitches) {
+        final name = s.name ?? s.kind;
+        if (name.isNotEmpty && name != 'magicRing') {
+          usedNames.add(name);
+        }
+      }
+    }
+    for (final v in chart.visualStitches) {
+      if (v.stitchName.isNotEmpty) usedNames.add(v.stitchName);
+    }
+
+    final embedded = <StitchRecord>[];
+    final seen = <String>{};
+    if (chart.embeddedStitches != null) {
+      for (final s in chart.embeddedStitches!) {
+        embedded.add(s);
+        seen.add(s.name);
+      }
+    }
+    if (stitchStore != null) {
+      for (final name in usedNames) {
+        if (!seen.contains(name)) {
+          final rec = stitchStore.getStitch(name);
+          if (rec != null) {
+            embedded.add(rec);
+            seen.add(name);
+          }
+        }
+      }
+    }
+    return chart.copyWith(embeddedStitches: embedded.isNotEmpty ? embedded : null);
+  }
+
   /// Serializes and saves [chart] to a file with [fileName].
   ///
   /// Supports both `.crochet` and `.json` extensions. Defaults to `.crochet`.
-  static Future<bool> saveChart(Chart chart, String fileName) {
+  /// Automatically embeds definitions for all stitches used in the chart if [stitchStore] is provided.
+  static Future<bool> saveChart(Chart chart, String fileName, {StitchStoreNotifier? stitchStore}) {
     String finalName = fileName.trim();
     if (finalName.isEmpty) {
       finalName = 'crochet_pattern.crochet';
@@ -28,7 +71,8 @@ abstract class ChartFileService {
       finalName = '$finalName.crochet';
     }
 
-    final jsonString = const JsonEncoder.withIndent('  ').convert(chart.toJson());
+    final chartToSave = prepareChartWithUsedStitches(chart, stitchStore);
+    final jsonString = const JsonEncoder.withIndent('  ').convert(chartToSave.toJson());
     final bytes = Uint8List.fromList(utf8.encode(jsonString));
     return saveChartPlatform(bytes, finalName);
   }

@@ -62,6 +62,19 @@ class StitchStore {
     _all = stitches;
   }
 
+  void registerStitches(List<StitchRecord> stitches) {
+    for (final s in stitches) {
+      final idx = _all.indexWhere((existing) => existing.name == s.name);
+      if (idx >= 0) {
+        if (_all[idx].svgContent.isEmpty && s.svgContent.isNotEmpty) {
+          _all[idx] = s;
+        }
+      } else {
+        _all.add(s);
+      }
+    }
+  }
+
   void setActiveStitchName(String? v) {
     _activeStitchName = v;
   }
@@ -99,6 +112,11 @@ class StitchStoreNotifier extends ChangeNotifier {
 
   void setStitches(List<StitchRecord> stitches) {
     _store.setStitches(stitches);
+    notifyListeners();
+  }
+
+  void registerStitches(List<StitchRecord> stitches) {
+    _store.registerStitches(stitches);
     notifyListeners();
   }
 

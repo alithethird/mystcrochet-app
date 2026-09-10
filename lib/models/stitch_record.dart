@@ -23,6 +23,16 @@ class StitchRecord {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'description': description,
+      'category': category,
+      'wrongSide': wrongSide,
+      'svgContent': svgContent,
+    };
+  }
+
   static List<String> _parseCategory(dynamic value) {
     if (value is List) {
       return value.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();

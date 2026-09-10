@@ -138,9 +138,8 @@ class AppToolbar extends ConsumerWidget {
       ),
     ];
 
-    final chartNameText = Text(
-      chartState.chart.name.isNotEmpty ? chartState.chart.name : 'İsimsiz',
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+    final chartNameText = _EditableChartTitle(
+      chartName: chartState.chart.name,
     );
 
     return Container(
@@ -217,6 +216,130 @@ class _ToolButton extends StatelessWidget {
             Icon(icon, size: 20, color: selected ? const Color(0xFFE85A7A) : Colors.black87),
             Text(label, style: TextStyle(fontSize: 10, color: selected ? const Color(0xFFE85A7A) : Colors.black54)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditableChartTitle extends ConsumerStatefulWidget {
+  final String chartName;
+  const _EditableChartTitle({required this.chartName});
+
+  @override
+  ConsumerState<_EditableChartTitle> createState() => _EditableChartTitleState();
+}
+
+class _EditableChartTitleState extends ConsumerState<_EditableChartTitle> {
+  bool _isEditing = false;
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.chartName);
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant _EditableChartTitle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.chartName != widget.chartName && !_isEditing) {
+      _controller.text = widget.chartName;
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus && _isEditing) {
+      _submit();
+    }
+  }
+
+  void _startEditing() {
+    setState(() {
+      _isEditing = true;
+      _controller.text = widget.chartName.isEmpty ? 'İsimsiz' : widget.chartName;
+      _controller.selection = TextSelection(baseOffset: 0, extentOffset: _controller.text.length);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  void _submit() {
+    if (!_isEditing) return;
+    final newName = _controller.text.trim();
+    if (newName.isNotEmpty && newName != widget.chartName) {
+      final notifier = ref.read(chartProvider.notifier);
+      notifier.setChart(notifier.chart.copyWith(name: newName), recordUndo: true);
+    }
+    setState(() {
+      _isEditing = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isEditing) {
+      return SizedBox(
+        width: 180,
+        height: 32,
+        child: TextField(
+          key: const ValueKey('toolbar_chart_name_input'),
+          controller: _controller,
+          focusNode: _focusNode,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Color(0xFF6750A4), width: 1.5),
+            ),
+          ),
+          onSubmitted: (_) => _submit(),
+        ),
+      );
+    }
+
+    final displayName = widget.chartName.isNotEmpty ? widget.chartName : 'İsimsiz';
+    return Tooltip(
+      message: 'İsmi değiştirmek için çift tıklayın',
+      child: GestureDetector(
+        key: const ValueKey('toolbar_chart_name_text'),
+        onDoubleTap: _startEditing,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  displayName,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 13,
+                  color: Colors.grey.shade400,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
