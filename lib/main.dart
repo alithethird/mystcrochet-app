@@ -8,6 +8,7 @@ import 'models/guidelines.dart';
 import 'providers/chart_provider.dart';
 import 'providers/edit_mode_provider.dart';
 import 'providers/stitch_provider.dart';
+import 'providers/locale_provider.dart';
 import 'widgets/toolbar.dart';
 import 'widgets/stitch_palette.dart';
 import 'widgets/visual_chart_view.dart';
@@ -266,9 +267,10 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
       }
     });
 
+    final strings = ref.watch(stringsProvider);
     final tabItems = [
-      {'label': 'Özellikler', 'widget': const PropertiesPanel()},
-      {'label': 'Şekil', 'widget': const ShapePanel()},
+      {'label': strings.properties, 'widget': const PropertiesPanel()},
+      {'label': strings.shape, 'widget': const ShapePanel()},
     ];
 
     return MaterialApp(

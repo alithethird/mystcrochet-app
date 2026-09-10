@@ -150,11 +150,17 @@ void main() {
         ),
       );
 
-      final openButton = find.widgetWithIcon(IconButton, Icons.folder_open);
-      expect(openButton, findsOneWidget);
+      // Open settings menu
+      final settingsButton = find.byKey(const ValueKey('toolbar_settings'));
+      expect(settingsButton, findsOneWidget);
+      await tester.tap(settingsButton);
+      await tester.pumpAndSettle();
 
-      await tester.tap(openButton);
-      await tester.pump();
+      final openMenuItem = find.byIcon(Icons.folder_open);
+      expect(openMenuItem, findsOneWidget);
+
+      await tester.tap(openMenuItem);
+      await tester.pumpAndSettle();
 
       expect(openFired, isTrue);
     });

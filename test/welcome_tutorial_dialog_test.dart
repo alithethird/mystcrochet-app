@@ -207,7 +207,11 @@ void main() {
     testWidgets('AppToolbar contains Kullanım Rehberi button and invokes onTutorial',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1400, 800);
-      addTearDown(() => tester.view.resetPhysicalSize());
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
       bool tutorialCalled = false;
       final container = ProviderContainer();
@@ -230,9 +234,15 @@ void main() {
       );
       await tester.pump();
 
+      // Open settings menu
+      final settingsFinder = find.byKey(const ValueKey('toolbar_settings'));
+      expect(settingsFinder, findsOneWidget);
+      await tester.ensureVisible(settingsFinder);
+      await tester.tap(settingsFinder);
+      await tester.pumpAndSettle();
+
       expect(find.byKey(const ValueKey('toolbar_tutorial')), findsOneWidget);
 
-      await tester.ensureVisible(find.byKey(const ValueKey('toolbar_tutorial')));
       await tester.tap(find.byKey(const ValueKey('toolbar_tutorial')));
       await tester.pumpAndSettle();
 

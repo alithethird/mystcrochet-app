@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../dialogs/language_selection_dialog.dart';
+import '../l10n/app_strings.dart';
 import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
+import '../providers/locale_provider.dart';
 import '../services/stitch_replace_service.dart';
 
 class AppToolbar extends ConsumerWidget {
@@ -28,29 +31,33 @@ class AppToolbar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final editState = ref.watch(editModeProvider);
     final chartState = ref.watch(chartProvider);
+    final strings = ref.watch(stringsProvider);
+    final currentLang = ref.watch(localeProvider);
+    final currentLangName = AppStrings.supportedLanguages
+        .firstWhere((l) => l['code'] == currentLang, orElse: () => {'name': 'Türkçe'})['name'];
 
     final tools = [
       _ToolButton(
         icon: Icons.auto_fix_high,
-        label: 'İlmek',
+        label: strings.stitch,
         selected: editState.mode == EditMode.stitch,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.stitch),
       ),
       _ToolButton(
         icon: Icons.checklist,
-        label: editState.selectedStitchKeys.isNotEmpty ? 'Seç (${editState.selectedStitchKeys.length})' : 'Seç',
+        label: editState.selectedStitchKeys.isNotEmpty ? '${strings.select} (${editState.selectedStitchKeys.length})' : strings.select,
         selected: editState.mode == EditMode.select,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.select),
       ),
       _ToolButton(
         icon: Icons.swap_horiz,
-        label: editState.selectedStitchKeys.isNotEmpty ? 'Değiştir (${editState.selectedStitchKeys.length})' : 'Değiştir',
+        label: editState.selectedStitchKeys.isNotEmpty ? '${strings.replace} (${editState.selectedStitchKeys.length})' : strings.replace,
         selected: editState.mode == EditMode.replace,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.replace),
       ),
       _ToolButton(
         icon: Icons.delete_outline,
-        label: editState.selectedStitchKeys.isNotEmpty ? 'Sil (${editState.selectedStitchKeys.length})' : 'Sil',
+        label: editState.selectedStitchKeys.isNotEmpty ? '${strings.delete} (${editState.selectedStitchKeys.length})' : strings.delete,
         selected: editState.mode == EditMode.delete,
         onTap: () {
           if (editState.selectedStitchKeys.isNotEmpty) {
@@ -65,7 +72,7 @@ class AppToolbar extends ConsumerWidget {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('${res.deletedCount} adet seçili ilmek silindi.'),
+                  content: Text('${res.deletedCount} ${strings.selected} ${strings.delete.toLowerCase()}.'),
                   backgroundColor: const Color(0xFFDC2626),
                   duration: const Duration(seconds: 2),
                 ),
@@ -78,13 +85,13 @@ class AppToolbar extends ConsumerWidget {
       ),
       _ToolButton(
         icon: Icons.open_with,
-        label: 'Taşı',
+        label: strings.move,
         selected: editState.mode == EditMode.move,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.move),
       ),
       _ToolButton(
         icon: Icons.pan_tool,
-        label: 'Kaydır',
+        label: strings.pan,
         selected: editState.mode == EditMode.pan,
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.pan),
       ),
@@ -93,62 +100,133 @@ class AppToolbar extends ConsumerWidget {
     final actions = [
       IconButton(
         icon: const Icon(Icons.undo, size: 20),
-        tooltip: 'Geri Al',
+        tooltip: strings.undo,
         onPressed: chartState.canUndo ? () => ref.read(chartProvider.notifier).undo() : null,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
         icon: const Icon(Icons.redo, size: 20),
-        tooltip: 'Yinele',
+        tooltip: strings.redo,
         onPressed: chartState.canRedo ? () => ref.read(chartProvider.notifier).redo() : null,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
-      IconButton(
-        icon: const Icon(Icons.add, size: 20),
-        tooltip: 'Yeni Grafik',
-        onPressed: onNew,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-      ),
-      IconButton(
-        key: const ValueKey('toolbar_saved_designs'),
-        icon: const Icon(Icons.collections_bookmark_outlined, size: 20),
-        tooltip: 'Kayıtlı Tasarımlar',
-        onPressed: onSavedDesigns,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-      ),
-      IconButton(
-        icon: const Icon(Icons.folder_open, size: 20),
-        tooltip: 'Grafik Aç (İçe Aktar)',
-        onPressed: onOpen,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-      ),
-      IconButton(
-        icon: const Icon(Icons.save, size: 20),
-        tooltip: 'Grafiği Kaydet',
-        onPressed: onSave,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-      ),
-      IconButton(
-        icon: const Icon(Icons.description, size: 20),
-        tooltip: 'Veri Görünümü (JSON / İçe Aktar)',
-        onPressed: onTextView,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-      ),
-      IconButton(
-        key: const ValueKey('toolbar_export_png'),
-        icon: const Icon(Icons.image_outlined, size: 20),
-        tooltip: 'PNG Olarak Dışa Aktar',
-        onPressed: onExportPng,
-        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-      ),
-      if (onTutorial != null)
+      if (onSavedDesigns != null)
         IconButton(
-          key: const ValueKey('toolbar_tutorial'),
-          icon: const Icon(Icons.help_outline, size: 20),
-          tooltip: 'Kullanım Rehberi',
-          onPressed: onTutorial,
+          key: const ValueKey('toolbar_saved_designs'),
+          icon: const Icon(Icons.collections_bookmark_outlined, size: 20),
+          tooltip: strings.savedDesigns,
+          onPressed: onSavedDesigns,
           constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
+      if (onExportPng != null)
+        IconButton(
+          key: const ValueKey('toolbar_export_png'),
+          icon: const Icon(Icons.image_outlined, size: 20),
+          tooltip: strings.exportPng,
+          onPressed: onExportPng,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+      PopupMenuButton<String>(
+        key: const ValueKey('toolbar_settings'),
+        icon: const Icon(Icons.settings, size: 20),
+        tooltip: strings.settings,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        padding: EdgeInsets.zero,
+        onSelected: (val) {
+          switch (val) {
+            case 'new':
+              onNew();
+              break;
+            case 'open':
+              onOpen();
+              break;
+            case 'save':
+              onSave();
+              break;
+            case 'text_view':
+              onTextView();
+              break;
+            case 'language':
+              LanguageSelectionDialog.show(context);
+              break;
+            case 'tutorial':
+              onTutorial?.call();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: 'new',
+            child: Row(
+              children: [
+                const Icon(Icons.add_circle_outline, size: 18),
+                const SizedBox(width: 8),
+                Text(strings.newChart, style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'open',
+            child: Row(
+              children: [
+                const Icon(Icons.folder_open, size: 18),
+                const SizedBox(width: 8),
+                Text(strings.openChart, style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'save',
+            child: Row(
+              children: [
+                const Icon(Icons.save, size: 18),
+                const SizedBox(width: 8),
+                Text(strings.saveChart, style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'text_view',
+            child: Row(
+              children: [
+                const Icon(Icons.description, size: 18),
+                const SizedBox(width: 8),
+                Text(strings.dataView, style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: 'language',
+            child: Row(
+              children: [
+                const Icon(Icons.language, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${strings.language}: $currentLangName',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onTutorial != null) ...[
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              key: const ValueKey('toolbar_tutorial'),
+              value: 'tutorial',
+              child: Row(
+                children: [
+                  const Icon(Icons.help_outline, size: 18),
+                  const SizedBox(width: 8),
+                  Text(strings.help, style: const TextStyle(fontSize: 13)),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     ];
 
     final chartNameText = EditableChartTitle(

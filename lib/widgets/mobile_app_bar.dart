@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../dialogs/language_selection_dialog.dart';
+import '../l10n/app_strings.dart';
 import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
+import '../providers/locale_provider.dart';
 import '../services/stitch_replace_service.dart';
 import 'toolbar.dart';
 
@@ -34,6 +37,10 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chartState = ref.watch(chartProvider);
     final editState = ref.watch(editModeProvider);
+    final strings = ref.watch(stringsProvider);
+    final currentLang = ref.watch(localeProvider);
+    final currentLangName = AppStrings.supportedLanguages
+        .firstWhere((l) => l['code'] == currentLang, orElse: () => {'name': 'Türkçe'})['name'];
 
     return Container(
       decoration: const BoxDecoration(
@@ -52,7 +59,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.menu, size: 22),
-                    tooltip: 'İlmek Paleti',
+                    tooltip: strings.stitchPalette,
                     onPressed: onOpenDrawer,
                   ),
                   Expanded(
@@ -62,7 +69,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.undo, size: 20),
-                    tooltip: 'Geri Al',
+                    tooltip: strings.undo,
                     onPressed: chartState.canUndo
                         ? () => ref.read(chartProvider.notifier).undo()
                         : null,
@@ -72,7 +79,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.redo, size: 20),
-                    tooltip: 'Yinele',
+                    tooltip: strings.redo,
                     onPressed: chartState.canRedo
                         ? () => ref.read(chartProvider.notifier).redo()
                         : null,
@@ -82,7 +89,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                   ),
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, size: 22),
-                    tooltip: 'Menü',
+                    tooltip: strings.settings,
                     onSelected: (val) {
                       switch (val) {
                         case 'new':
@@ -103,103 +110,125 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                         case 'text_view':
                           onTextView();
                           break;
+                        case 'language':
+                          LanguageSelectionDialog.show(context);
+                          break;
                         case 'tutorial':
                           onTutorial?.call();
                           break;
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'new',
                         child: Row(
                           children: [
-                            Icon(Icons.add_circle_outline, size: 18),
-                            SizedBox(width: 8),
+                            const Icon(Icons.add_circle_outline, size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Text('Yeni Grafik',
-                                  style: TextStyle(fontSize: 13)),
+                              child: Text(strings.newChart,
+                                  style: const TextStyle(fontSize: 13)),
                             ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'open',
                         child: Row(
                           children: [
-                            Icon(Icons.folder_open, size: 18),
-                            SizedBox(width: 8),
+                            const Icon(Icons.folder_open, size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Text('Grafik Aç',
-                                  style: TextStyle(fontSize: 13)),
+                              child: Text(strings.openChart,
+                                  style: const TextStyle(fontSize: 13)),
                             ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'save',
                         child: Row(
                           children: [
-                            Icon(Icons.save, size: 18),
-                            SizedBox(width: 8),
+                            const Icon(Icons.save, size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Text('Grafiği Kaydet',
-                                  style: TextStyle(fontSize: 13)),
+                              child: Text(strings.saveChart,
+                                  style: const TextStyle(fontSize: 13)),
                             ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'saved_designs',
                         child: Row(
                           children: [
-                            Icon(Icons.collections_bookmark_outlined, size: 18),
-                            SizedBox(width: 8),
+                            const Icon(Icons.collections_bookmark_outlined, size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Text('Kayıtlı Tasarımlar',
-                                  style: TextStyle(fontSize: 13)),
+                              child: Text(strings.savedDesigns,
+                                  style: const TextStyle(fontSize: 13)),
                             ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'export_png',
                         child: Row(
                           children: [
-                            Icon(Icons.image_outlined, size: 18),
-                            SizedBox(width: 8),
+                            const Icon(Icons.image_outlined, size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Text('PNG Olarak Dışa Aktar',
-                                  style: TextStyle(fontSize: 13)),
+                              child: Text(strings.exportPng,
+                                  style: const TextStyle(fontSize: 13)),
                             ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'text_view',
                         child: Row(
                           children: [
-                            Icon(Icons.description, size: 18),
-                            SizedBox(width: 8),
+                            const Icon(Icons.description, size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Text('Veri Görünümü (JSON)',
-                                  style: TextStyle(fontSize: 13)),
+                              child: Text(strings.dataView,
+                                  style: const TextStyle(fontSize: 13)),
                             ),
                           ],
                         ),
                       ),
-                      const PopupMenuItem(
-                        value: 'tutorial',
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        value: 'language',
                         child: Row(
                           children: [
-                            Icon(Icons.help_outline, size: 18),
-                            SizedBox(width: 8),
+                            const Icon(Icons.language, size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: Text('Kullanım Rehberi',
-                                  style: TextStyle(fontSize: 13)),
+                              child: Text(
+                                '${strings.language}: $currentLangName',
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      if (onTutorial != null) ...[
+                        const PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'tutorial',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.help_outline, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(strings.help,
+                                    style: const TextStyle(fontSize: 13)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -220,8 +249,8 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     _MobileToolChip(
                       icon: Icons.check_box_outlined,
                       label: editState.selectedStitchKeys.isNotEmpty
-                          ? 'Seç (${editState.selectedStitchKeys.length})'
-                          : 'Seç',
+                          ? '${strings.select} (${editState.selectedStitchKeys.length})'
+                          : strings.select,
                       selected: editState.mode == EditMode.select,
                       onTap: () => ref
                           .read(editModeProvider.notifier)
@@ -231,8 +260,8 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     _MobileToolChip(
                       icon: Icons.swap_horiz,
                       label: editState.selectedStitchKeys.isNotEmpty
-                          ? 'Değiştir (${editState.selectedStitchKeys.length})'
-                          : 'Değiştir',
+                          ? '${strings.replace} (${editState.selectedStitchKeys.length})'
+                          : strings.replace,
                       selected: editState.mode == EditMode.replace,
                       onTap: () => ref
                           .read(editModeProvider.notifier)
@@ -242,8 +271,8 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     _MobileToolChip(
                       icon: Icons.delete_outline,
                       label: editState.selectedStitchKeys.isNotEmpty
-                          ? 'Sil (${editState.selectedStitchKeys.length})'
-                          : 'Sil',
+                          ? '${strings.delete} (${editState.selectedStitchKeys.length})'
+                          : strings.delete,
                       selected: editState.mode == EditMode.delete,
                       onTap: () {
                         if (editState.selectedStitchKeys.isNotEmpty) {
@@ -263,7 +292,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                    '${res.deletedCount} adet seçili ilmek silindi.'),
+                                    '${res.deletedCount} ${strings.selected} ${strings.delete.toLowerCase()}.'),
                                 backgroundColor: const Color(0xFFDC2626),
                                 duration: const Duration(seconds: 2),
                               ),
@@ -279,7 +308,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     const SizedBox(width: 4),
                     _MobileToolChip(
                       icon: Icons.open_with,
-                      label: 'Taşı',
+                      label: strings.move,
                       selected: editState.mode == EditMode.move,
                       onTap: () => ref
                           .read(editModeProvider.notifier)
@@ -288,7 +317,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     const SizedBox(width: 4),
                     _MobileToolChip(
                       icon: Icons.pan_tool,
-                      label: 'Kaydır',
+                      label: strings.pan,
                       selected: editState.mode == EditMode.pan,
                       onTap: () => ref
                           .read(editModeProvider.notifier)
