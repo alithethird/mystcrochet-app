@@ -211,66 +211,6 @@ class PropertiesPanel extends ConsumerWidget {
   }
 }
 
-class PatternPanel extends ConsumerStatefulWidget {
-  final void Function(List<dynamic> rounds)? onParse;
-
-  const PatternPanel({super.key, this.onParse});
-
-  @override
-  ConsumerState<PatternPanel> createState() => _PatternPanelState();
-}
-
-class _PatternPanelState extends ConsumerState<PatternPanel> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Desen Metni', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        TextField(
-          controller: _controller,
-          maxLines: 8,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            hintText: 'Desen metninizi buraya yapıştırın...',
-            isDense: true,
-          ),
-          style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.tonalIcon(
-          onPressed: () {
-            final text = _controller.text;
-            if (text.trim().isEmpty) return;
-            final parsed = parsePattern(text);
-            if (parsed.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Desen metninde tur bulunamadı')),
-              );
-              return;
-            }
-            widget.onParse?.call(parsed.map((r) => r.toJson()).toList());
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${parsed.length} tur başarıyla çözümlendi')),
-            );
-          },
-          icon: const Icon(Icons.auto_awesome, size: 16),
-          label: const Text('Deseni Çözümle', style: TextStyle(fontSize: 12)),
-        ),
-      ],
-    );
-  }
-}
-
 /// Approximate circumscribed radius (px) used when migrating per-stitch drag
 /// offsets across a shape switch (angleOffset ⇄ perimeterOffset conversion).
 /// Real per-round radius grows with stitch heights; we use a rough proxy

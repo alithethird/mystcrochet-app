@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models/guidelines.dart';
-import 'models/pattern.dart';
 import 'providers/chart_provider.dart';
 import 'providers/edit_mode_provider.dart';
 import 'providers/stitch_provider.dart';
@@ -53,20 +52,6 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
       guidelines: chart.guidelines.copyWith(type: styleEnum),
       patternRounds: [],
       visualStitches: [],
-    ));
-  }
-
-  void _handlePatternParse(List<dynamic> roundsRaw) {
-    final rounds = roundsRaw
-        .map((e) => PatternRound.fromJson(e as Map<String, dynamic>))
-        .toList();
-    final connected = assignConnections(rounds);
-    final notifier = ref.read(chartProvider.notifier);
-    final chart = notifier.chart;
-    notifier.loadChart(chart.copyWith(
-      style: GuidelinesType.visual,
-      guidelines: chart.guidelines.copyWith(type: GuidelinesType.visual),
-      patternRounds: connected,
     ));
   }
 
@@ -390,7 +375,6 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                 isOpen: _rightOpen,
                 tabs: tabItems,
                 onToggle: () => setState(() => _rightOpen = !_rightOpen),
-                onPatternParse: _handlePatternParse,
               ),
             ],
           ),
@@ -406,13 +390,11 @@ class _BottomPanel extends StatefulWidget {
   final bool isOpen;
   final List<Map<String, dynamic>> tabs;
   final VoidCallback onToggle;
-  final void Function(List<dynamic>) onPatternParse;
 
   const _BottomPanel({
     required this.isOpen,
     required this.tabs,
     required this.onToggle,
-    required this.onPatternParse,
   });
 
   @override
@@ -425,7 +407,7 @@ class _BottomPanelState extends State<_BottomPanel> with SingleTickerProviderSta
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: widget.tabs.length + 1, vsync: this);
+    _tabController = TabController(length: widget.tabs.length, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         if (widget.isOpen == false) widget.onToggle();
@@ -469,7 +451,6 @@ class _BottomPanelState extends State<_BottomPanel> with SingleTickerProviderSta
                           indicatorColor: const Color(0xFF3B82F6),
                           tabs: [
                             ...widget.tabs.map((t) => Tab(text: t['label'] as String)),
-                            const Tab(text: 'Desen Metni'),
                           ],
                         ),
                       ),
@@ -493,14 +474,6 @@ class _BottomPanelState extends State<_BottomPanel> with SingleTickerProviderSta
                         padding: const EdgeInsets.all(12),
                         child: SingleChildScrollView(child: t['widget'] as Widget),
                       )),
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: SingleChildScrollView(
-                          child: PatternPanel(
-                            onParse: (rounds) => widget.onPatternParse(rounds),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),

@@ -81,12 +81,6 @@ class AppToolbar extends ConsumerWidget {
         onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.move),
       ),
       _ToolButton(
-        icon: Icons.text_fields,
-        label: 'Metin',
-        selected: editState.mode == EditMode.indicator,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.indicator),
-      ),
-      _ToolButton(
         icon: Icons.pan_tool,
         label: 'Kaydır',
         selected: editState.mode == EditMode.pan,
