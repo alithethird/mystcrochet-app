@@ -162,5 +162,74 @@ void main() {
     final IconButton finalButton = tester.widget(clearButtonFinder);
     expect(finalButton.onPressed, isNull);
   });
+
+  testWidgets('Approximate search finds stitches with typos and shows empty state for unmatched query',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final notifier = StitchStoreNotifier();
+    notifier.setStitches([
+      StitchRecord(
+        name: 'single crochet',
+        description: 'Single crochet stitch',
+        category: ['Basic'],
+        wrongSide: '',
+        svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+      ),
+      StitchRecord(
+        name: 'double crochet',
+        description: 'Double crochet stitch',
+        category: ['Basic'],
+        wrongSide: '',
+        svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+      ),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        stitchStoreProvider.overrideWith((ref) => notifier),
+      ],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: StitchPalette(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Type typo "duble"
+    await tester.enterText(find.byType(TextField), 'duble');
+    await tester.pump();
+
+    // Should approximate-match "double crochet"
+    expect(find.text('double crochet'), findsOneWidget);
+    expect(find.text('single crochet'), findsNothing);
+
+    // Type query with no matches
+    await tester.enterText(find.byType(TextField), 'xyzunknown');
+    await tester.pump();
+
+    // Should show empty state
+    expect(find.text('Eşleşen ilmek bulunamadı'), findsOneWidget);
+    expect(find.text('Aramayı temizle'), findsOneWidget);
+
+    // Tap "Aramayı temizle" in empty state
+    await tester.tap(find.text('Aramayı temizle'));
+    await tester.pump();
+
+    // Restores stitch list
+    expect(find.text('single crochet'), findsOneWidget);
+    expect(find.text('double crochet'), findsOneWidget);
+  });
 }
+
 

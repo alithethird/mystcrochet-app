@@ -164,11 +164,39 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: stitches.length,
-              itemBuilder: (context, index) {
-                final stitch = stitches[index];
-                final isSelected = activeStitchName == stitch.name;
+            child: stitches.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.search_off, size: 40, color: Colors.grey[400]),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Eşleşen ilmek bulunamadı',
+                            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                            textAlign: TextAlign.center,
+                          ),
+                          if (_searchController.text.isNotEmpty ||
+                              store.searchText.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: _clearSearch,
+                              icon: const Icon(Icons.clear, size: 16),
+                              label: const Text('Aramayı temizle',
+                                  style: TextStyle(fontSize: 12)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: stitches.length,
+                    itemBuilder: (context, index) {
+                      final stitch = stitches[index];
+                      final isSelected = activeStitchName == stitch.name;
                 final colored =
                     substituteColors(stitch.svgContent, '#000000', '#ffffff');
                 return Material(

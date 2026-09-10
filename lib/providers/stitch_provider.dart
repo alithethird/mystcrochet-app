@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 import '../models/stitch_record.dart';
+import '../utils/approximate_search.dart';
 
 class StitchStore {
   List<StitchRecord> _all = [];
@@ -16,17 +17,11 @@ class StitchStore {
   String? get activeStitchName => _activeStitchName;
 
   List<StitchRecord> get filtered {
-    var result = _all;
-    if (_activeCategory != null) {
-      result = result.where((s) => s.category.contains(_activeCategory)).toList();
-    }
-    if (_searchText.isNotEmpty) {
-      final q = _searchText.toLowerCase();
-      result = result.where((s) =>
-          s.name.toLowerCase().contains(q) ||
-          s.description.toLowerCase().contains(q)).toList();
-    }
-    return result;
+    return searchStitches(
+      stitches: _all,
+      query: _searchText,
+      activeCategory: _activeCategory,
+    );
   }
 
   List<String> get categories {
