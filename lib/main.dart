@@ -16,7 +16,9 @@ import 'dialogs/export_dialog.dart';
 import 'dialogs/save_chart_dialog.dart';
 import 'services/export_service.dart';
 import 'services/chart_file_service.dart';
+import 'services/local_design_service.dart';
 import 'widgets/build_version_badge.dart';
+import 'widgets/saved_designs_dialog.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -181,6 +183,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
           final stitchStore = ref.read(stitchStoreProvider);
           final success = await ChartFileService.saveChart(currentChart, fileName, stitchStore: stitchStore);
           if (success) {
+            await LocalDesignService.saveDesign(currentChart, name: updatedChartName ?? currentChart.name);
             messenger.showSnackBar(
               SnackBar(
                 content: Text('$fileName başarıyla kaydedildi.'),
@@ -195,6 +198,28 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
               ),
             );
           }
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleSavedDesigns(BuildContext context) async {
+    final currentChart = ref.read(chartProvider).chart;
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => SavedDesignsDialog(
+        currentChart: currentChart,
+        onSelect: (selectedChart) {
+          ref.read(chartProvider.notifier).loadChart(selectedChart);
+          if (selectedChart.embeddedStitches != null && selectedChart.embeddedStitches!.isNotEmpty) {
+            ref.read(stitchStoreProvider).registerStitches(selectedChart.embeddedStitches!);
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"${selectedChart.name.isNotEmpty ? selectedChart.name : "Tasarım"}" başarıyla yüklendi.'),
+              backgroundColor: const Color(0xFF16A34A),
+            ),
+          );
         },
       ),
     );
@@ -295,6 +320,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                     ),
                     onOpen: () => _handleOpen(innerContext),
                     onSave: () => _handleSave(innerContext),
+                    onSavedDesigns: () => _handleSavedDesigns(innerContext),
                     onTextView: () => showDialog(
                       context: innerContext,
                       builder: (_) => ProviderScope(

@@ -10,6 +10,7 @@ class AppToolbar extends ConsumerWidget {
   final VoidCallback onSave;
   final VoidCallback onTextView;
   final VoidCallback? onExportPng;
+  final VoidCallback? onSavedDesigns;
 
   const AppToolbar({
     super.key,
@@ -18,6 +19,7 @@ class AppToolbar extends ConsumerWidget {
     required this.onSave,
     required this.onTextView,
     this.onExportPng,
+    this.onSavedDesigns,
   });
 
   @override
@@ -112,6 +114,13 @@ class AppToolbar extends ConsumerWidget {
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
+        key: const ValueKey('toolbar_saved_designs'),
+        icon: const Icon(Icons.collections_bookmark_outlined, size: 20),
+        tooltip: 'Kayıtlı Tasarımlar',
+        onPressed: onSavedDesigns,
+        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      ),
+      IconButton(
         icon: const Icon(Icons.folder_open, size: 20),
         tooltip: 'Grafik Aç (İçe Aktar)',
         onPressed: onOpen,
@@ -147,7 +156,7 @@ class AppToolbar extends ConsumerWidget {
       color: Colors.white,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isCompact = constraints.maxWidth < 950;
+          final isCompact = constraints.maxWidth < 1350;
           if (isCompact) {
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
