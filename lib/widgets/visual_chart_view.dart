@@ -1721,8 +1721,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     ),
           if (chart.starterStitchName != null)
             Positioned(
-              left: 6,
-              top: 6,
+              left: 20,
+              top: 8,
               child: Builder(
                 builder: (context) {
                   final mappedSelected = _selectedRoundIdx != null ? _visualToChartRound[_selectedRoundIdx!] : null;
@@ -1736,14 +1736,19 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                       : null;
                   final currentOffset = activeRound?.radiusOffset ?? 0.0;
                   return Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width - 32,
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: const Color(0xFFDDDDDD)),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           'Tur ${activeRound != null ? activeRound.number : (rounds.isEmpty ? 1 : rounds.length)} (${activeRound != null ? activeRound.stitches.length : 0} ilmek)',
@@ -1856,7 +1861,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                         ),
                       ],
                     ),
-                  );
+                  ),
+                );
                 },
               ),
             ),

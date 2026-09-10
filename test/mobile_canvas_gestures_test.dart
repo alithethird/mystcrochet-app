@@ -59,8 +59,8 @@ void main() {
 
       final initialMatrix = key.currentState?.transformationController.value.clone() ?? Matrix4.identity();
 
-      // Touch way outside rounds (near top-left corner: (40, 40)) and drag by (100, 50)
-      final gesture = await tester.startGesture(const Offset(40, 40), kind: PointerDeviceKind.touch);
+      // Touch way outside rounds (near bottom-left: (50, 700)) and drag by (100, 50)
+      final gesture = await tester.startGesture(const Offset(50, 700), kind: PointerDeviceKind.touch);
       await tester.pump();
 
       await gesture.moveBy(const Offset(100, 50));
