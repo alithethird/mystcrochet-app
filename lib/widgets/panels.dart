@@ -52,14 +52,16 @@ class PropertiesPanel extends ConsumerWidget {
               padding: EdgeInsets.zero,
               onPressed: () {
                 final notifier = ref.read(chartProvider.notifier);
-                final prevOffset = chart.patternRounds.isNotEmpty
-                    ? chart.patternRounds.last.radiusOffset
+                final prevRound = chart.patternRounds.isNotEmpty
+                    ? chart.patternRounds.last
                     : null;
                 final rounds = List<PatternRound>.from(chart.patternRounds)
                   ..add(PatternRound(
                     number: chart.patternRounds.length + 1,
                     stitches: [],
-                    radiusOffset: prevOffset,
+                    radiusOffset: prevRound?.radiusOffset,
+                    sides: prevRound?.sides,
+                    cornerRatio: prevRound?.cornerRatio,
                   ));
                 notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
               },
@@ -333,8 +335,13 @@ class _ShapePanelState extends ConsumerState<ShapePanel> {
           ),
           items: [
             const DropdownMenuItem(value: 0, child: Text('Daire')),
-            for (var n = 3; n <= 12; n++)
-              DropdownMenuItem(value: n, child: Text('$n kenarlı')),
+            const DropdownMenuItem(value: 3, child: Text('Üçgen')),
+            const DropdownMenuItem(value: 4, child: Text('Kare')),
+            const DropdownMenuItem(value: 5, child: Text('Beşgen')),
+            const DropdownMenuItem(value: 6, child: Text('Altıgen')),
+            const DropdownMenuItem(value: 8, child: Text('Sekizgen')),
+            if (![0, 3, 4, 5, 6, 8].contains(sides))
+              DropdownMenuItem(value: sides, child: Text('$sides kenarlı')),
           ],
           onChanged: (v) => _switchShape(v ?? 0),
         ),

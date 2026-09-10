@@ -779,11 +779,13 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
         stitches: stitches,
       );
     } else {
-      final prevOffset = rounds.isNotEmpty ? rounds.last.radiusOffset : null;
+      final prevRound = rounds.isNotEmpty ? rounds.last : null;
       rounds.add(PatternRound(
         number: rounds.length + 1,
         stitches: [newStitch],
-        radiusOffset: prevOffset,
+        radiusOffset: prevRound?.radiusOffset,
+        sides: prevRound?.sides,
+        cornerRatio: prevRound?.cornerRatio,
       ));
     }
 
@@ -795,11 +797,13 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     final rounds = List<PatternRound>.from(chart.patternRounds);
-    final prevOffset = rounds.isNotEmpty ? rounds.last.radiusOffset : null;
+    final prevRound = rounds.isNotEmpty ? rounds.last : null;
     rounds.add(PatternRound(
       number: rounds.length + 1,
       stitches: [],
-      radiusOffset: prevOffset,
+      radiusOffset: prevRound?.radiusOffset,
+      sides: prevRound?.sides,
+      cornerRatio: prevRound?.cornerRatio,
     ));
     notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
   }

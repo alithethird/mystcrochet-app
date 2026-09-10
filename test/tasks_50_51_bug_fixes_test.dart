@@ -172,5 +172,82 @@ void main() {
       expect(rounds.length, equals(2));
       expect(rounds[1].radiusOffset, equals(30.0));
     });
+
+    testWidgets('Selecting shape in canvas bar and clicking Yeni Tur inherits that shape',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final initialChart = Chart.defaultChart().copyWith(
+        name: 'Bar Shape Inherit Test',
+        starterStitchName: 'magicRing',
+        patternRounds: [
+          PatternRound(
+            number: 1,
+            stitches: [
+              PatternStitch(kind: 'stitch', name: 'sc'),
+            ],
+            sides: 6, // Hexagon
+          ),
+        ],
+      );
+
+      final container = ProviderContainer();
+      final chartNotifier = container.read(chartProvider.notifier);
+      chartNotifier.setChart(initialChart);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: VisualChartView(ringRadius: 50.0),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap 'Yeni Tur' button on canvas
+      final newRoundBtn = find.text('Yeni Tur');
+      expect(newRoundBtn, findsOneWidget);
+      await tester.tap(newRoundBtn);
+      await tester.pumpAndSettle();
+
+      // Verify Round 2 was created with sides inherited from Round 1 (6 = hexagon)
+      final rounds = chartNotifier.chart.patternRounds;
+      expect(rounds.length, equals(2));
+      expect(rounds[1].sides, equals(6));
+    });
+
+    testWidgets('ShapePanel displays same shape options as canvas bar',
+        (WidgetTester tester) async {
+      final container = ProviderContainer();
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: ShapePanel(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Open Shape dropdown
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Daire'), findsWidgets);
+      expect(find.text('Üçgen'), findsWidgets);
+      expect(find.text('Kare'), findsWidgets);
+      expect(find.text('Beşgen'), findsWidgets);
+      expect(find.text('Altıgen'), findsWidgets);
+      expect(find.text('Sekizgen'), findsWidgets);
+    });
   });
 }
