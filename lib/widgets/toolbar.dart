@@ -141,7 +141,7 @@ class AppToolbar extends ConsumerWidget {
       ),
     ];
 
-    final chartNameText = _EditableChartTitle(
+    final chartNameText = EditableChartTitle(
       chartName: chartState.chart.name,
     );
 
@@ -225,15 +225,15 @@ class _ToolButton extends StatelessWidget {
   }
 }
 
-class _EditableChartTitle extends ConsumerStatefulWidget {
+class EditableChartTitle extends ConsumerStatefulWidget {
   final String chartName;
-  const _EditableChartTitle({required this.chartName});
+  const EditableChartTitle({super.key, required this.chartName});
 
   @override
-  ConsumerState<_EditableChartTitle> createState() => _EditableChartTitleState();
+  ConsumerState<EditableChartTitle> createState() => _EditableChartTitleState();
 }
 
-class _EditableChartTitleState extends ConsumerState<_EditableChartTitle> {
+class _EditableChartTitleState extends ConsumerState<EditableChartTitle> {
   bool _isEditing = false;
   late TextEditingController _controller;
   late FocusNode _focusNode;
@@ -247,7 +247,7 @@ class _EditableChartTitleState extends ConsumerState<_EditableChartTitle> {
   }
 
   @override
-  void didUpdateWidget(covariant _EditableChartTitle oldWidget) {
+  void didUpdateWidget(covariant EditableChartTitle oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.chartName != widget.chartName && !_isEditing) {
       _controller.text = widget.chartName;

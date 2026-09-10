@@ -1,8 +1,8 @@
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -536,6 +536,7 @@ class VisualChartView extends ConsumerStatefulWidget {
 
 class VisualChartViewState extends ConsumerState<VisualChartView> {
   final TransformationController _transform = TransformationController();
+  TransformationController get transformationController => _transform;
   final GlobalKey _viewKey = GlobalKey();
   final GlobalKey _chartRepaintKey = GlobalKey();
   bool _isExporting = false;
@@ -574,6 +575,16 @@ class VisualChartViewState extends ConsumerState<VisualChartView> {
   int? _hoverStitchIdx;
   int? _selectedRoundIdx;
   int? _selectedStitchIdx;
+
+  // Mobile multi-touch pinch zoom & natural canvas pan state (Task #33)
+  final Map<int, Offset> _activePointers = {};
+  int? _canvasPanPointer;
+  Offset? _canvasPanStart;
+  Offset? _canvasPanLast;
+  bool _hasCanvasPanned = false;
+  double? _pinchLastDistance;
+  Offset? _pinchLastMidpoint;
+  bool _isPinching = false;
 
   Future<Uint8List?> capturePng({
     double pixelRatio = 2.0,
@@ -1270,6 +1281,18 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     }
   }
 
+  double _computeOuterRadius(List<List<PosStitch>>? positioned, double effectiveRingRadius) {
+    double maxR = 0.0;
+    if (positioned != null) {
+      for (final roundStitches in positioned) {
+        for (final s in roundStitches) {
+          if (s.radius > maxR) maxR = s.radius;
+        }
+      }
+    }
+    return maxR > 0 ? maxR : (effectiveRingRadius + 40.0);
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(chartProvider.select((s) => s.loadId), (prev, next) {
@@ -1367,11 +1390,46 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           Positioned.fill(
             child: Listener(
         onPointerDown: (event) {
-          if (event.buttons == kPrimaryButton) {
+          _activePointers[event.pointer] = event.position;
+
+          if (_activePointers.length >= 2) {
+            // Two-finger pinch / pan gesture starts
+            _dragPointer = null;
+            _dragRoundIdx = null;
+            _dragStitchIdx = null;
+            _canvasPanPointer = null;
+
+            final p1 = _activePointers.values.elementAt(0);
+            final p2 = _activePointers.values.elementAt(1);
+            _pinchLastDistance = (p1 - p2).distance;
+            _pinchLastMidpoint = (p1 + p2) / 2;
+            _isPinching = true;
+            _hasCanvasPanned = true;
+            return;
+          }
+
+          if (event.buttons == kPrimaryButton || event.kind == ui.PointerDeviceKind.touch) {
+            bool grabbed = false;
             if (editState.mode == EditMode.move && positioned != null) {
-              final grabbed = _startDrag(event.position, svgSize, positioned, sides: sides, cornerRatio: cornerRatio);
+              grabbed = _startDrag(event.position, svgSize, positioned, sides: sides, cornerRatio: cornerRatio);
               if (grabbed) {
                 _dragPointer = event.pointer;
+              }
+            }
+
+            if (!grabbed) {
+              final matrix = _transform.value;
+              final inverse = Matrix4.identity()..copyInverse(matrix);
+              final content = MatrixUtils.transformPoint(inverse, event.localPosition);
+              final distFromCenter = (content - Offset(half, half)).distance;
+              final outerRadius = _computeOuterRadius(positioned, effectiveRingRadius);
+              final isFarFromRounds = distFromCenter > (outerRadius + 25.0);
+
+              if (isFarFromRounds || editState.mode == EditMode.pan) {
+                _canvasPanPointer = event.pointer;
+                _canvasPanStart = event.position;
+                _canvasPanLast = event.position;
+                _hasCanvasPanned = false;
               }
             }
           } else if (event.buttons == kMiddleMouseButton) {
@@ -1380,12 +1438,62 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           }
         },
         onPointerMove: (event) {
+          _activePointers[event.pointer] = event.position;
+
+          // Two-finger pinch zoom and pan (Task #33)
+          if (_isPinching && _activePointers.length >= 2) {
+            final p1 = _activePointers.values.elementAt(0);
+            final p2 = _activePointers.values.elementAt(1);
+            final newDistance = (p1 - p2).distance;
+            final newMidpoint = (p1 + p2) / 2;
+
+            if (_pinchLastDistance != null && _pinchLastDistance! > 0 && _pinchLastMidpoint != null) {
+              final scaleDelta = newDistance / _pinchLastDistance!;
+              final panDelta = newMidpoint - _pinchLastMidpoint!;
+
+              final currentScale = _transform.value.getMaxScaleOnAxis();
+              final targetScale = (currentScale * scaleDelta).clamp(0.25, 6.0);
+              final effectiveScaleRatio = targetScale / currentScale;
+
+              _transform.value.translateByDouble(panDelta.dx / currentScale, panDelta.dy / currentScale, 0, 1);
+
+              if ((effectiveScaleRatio - 1.0).abs() > 0.0005) {
+                final localMidpoint = MatrixUtils.transformPoint(
+                  Matrix4.identity()..copyInverse(_transform.value),
+                  newMidpoint,
+                );
+                _transform.value.translateByDouble(localMidpoint.dx, localMidpoint.dy, 0, 1);
+                _transform.value.scaleByDouble(effectiveScaleRatio, effectiveScaleRatio, 1, 1);
+                _transform.value.translateByDouble(-localMidpoint.dx, -localMidpoint.dy, 0, 1);
+              }
+              setState(() {});
+            }
+            _pinchLastDistance = newDistance;
+            _pinchLastMidpoint = newMidpoint;
+            _hasCanvasPanned = true;
+            return;
+          }
+
           if (event.pointer == _dragPointer) {
             if (editState.mode == EditMode.move && positioned != null) {
               _updateDrag(event.position, svgSize, positioned);
             }
             return;
           }
+
+          // Natural canvas pan when dragging outside rounds or in pan mode
+          if (event.pointer == _canvasPanPointer && _canvasPanLast != null) {
+            final delta = event.position - _canvasPanLast!;
+            if ((event.position - _canvasPanStart!).distance > 4.0) {
+              _hasCanvasPanned = true;
+            }
+            final scale = _transform.value.getMaxScaleOnAxis();
+            _transform.value.translateByDouble(delta.dx / scale, delta.dy / scale, 0, 1);
+            _canvasPanLast = event.position;
+            setState(() {});
+            return;
+          }
+
           if (event.pointer == _middleDragPointer && _middleDragLast != null) {
             if (event.buttons == kMiddleMouseButton) {
               final scale = _transform.value.getMaxScaleOnAxis();
@@ -1394,10 +1502,43 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
               _transform.value.translateByDouble(
                   dx / scale, dy / scale, 0, 1);
               _middleDragLast = event.position;
+              setState(() {});
             }
           }
         },
         onPointerUp: (event) {
+          _activePointers.remove(event.pointer);
+          if (_activePointers.length < 2) {
+            _isPinching = false;
+            _pinchLastDistance = null;
+            _pinchLastMidpoint = null;
+          }
+          if (event.pointer == _canvasPanPointer) {
+            _canvasPanPointer = null;
+            _canvasPanLast = null;
+          }
+          if (event.pointer == _dragPointer) {
+            _dragPointer = null;
+            _dragRoundIdx = null;
+            _dragStitchIdx = null;
+            _hasRecordedDragUndo = false;
+          }
+          if (event.pointer == _middleDragPointer) {
+            _middleDragPointer = null;
+            _middleDragLast = null;
+          }
+        },
+        onPointerCancel: (event) {
+          _activePointers.remove(event.pointer);
+          if (_activePointers.length < 2) {
+            _isPinching = false;
+            _pinchLastDistance = null;
+            _pinchLastMidpoint = null;
+          }
+          if (event.pointer == _canvasPanPointer) {
+            _canvasPanPointer = null;
+            _canvasPanLast = null;
+          }
           if (event.pointer == _dragPointer) {
             _dragPointer = null;
             _dragRoundIdx = null;
@@ -1413,11 +1554,26 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           if (_dragPointer != null || _dragRoundIdx != null) return;
           if (event is PointerScrollEvent) {
             final scale = _transform.value.getMaxScaleOnAxis();
-            _transform.value.translateByDouble(
-              -event.scrollDelta.dx / scale,
-              -event.scrollDelta.dy / scale,
-              0, 1,
-            );
+            if (HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed) {
+              final zoomFactor = event.scrollDelta.dy < 0 ? 1.1 : 0.9;
+              final newScale = (scale * zoomFactor).clamp(0.25, 6.0);
+              final ratio = newScale / scale;
+              final localPoint = MatrixUtils.transformPoint(
+                Matrix4.identity()..copyInverse(_transform.value),
+                event.localPosition,
+              );
+              _transform.value.translateByDouble(localPoint.dx, localPoint.dy, 0, 1);
+              _transform.value.scaleByDouble(ratio, ratio, 1, 1);
+              _transform.value.translateByDouble(-localPoint.dx, -localPoint.dy, 0, 1);
+              setState(() {});
+            } else {
+              _transform.value.translateByDouble(
+                -event.scrollDelta.dx / scale,
+                -event.scrollDelta.dy / scale,
+                0, 1,
+              );
+              setState(() {});
+            }
           }
         },
         child: MouseRegion(
@@ -1456,6 +1612,10 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           },
           child: GestureDetector(
           onTapUp: (details) {
+            if (_hasCanvasPanned) {
+              _hasCanvasPanned = false;
+              return;
+            }
             debugPrint('TAPUP mode=${editState.mode}');
             final matrix = _transform.value;
             final inverse = Matrix4.identity()..copyInverse(matrix);
@@ -1474,8 +1634,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             transformationController: _transform,
             minScale: 0.25,
             maxScale: 6,
-            panEnabled: editState.mode == EditMode.pan,
-            scaleEnabled: editState.mode != EditMode.move && _dragPointer == null && _dragRoundIdx == null,
+            panEnabled: false,
+            scaleEnabled: false,
             constrained: false,
             boundaryMargin: const EdgeInsets.all(double.infinity),
             child: RepaintBoundary(

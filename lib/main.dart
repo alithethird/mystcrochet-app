@@ -18,6 +18,7 @@ import 'services/chart_file_service.dart';
 import 'services/local_design_service.dart';
 import 'widgets/build_version_badge.dart';
 import 'widgets/saved_designs_dialog.dart';
+import 'widgets/mobile_app_bar.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -295,90 +296,136 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
           },
           child: Focus(
             autofocus: true,
-            child: Scaffold(
-              body: Column(
-                children: [
-                  AppToolbar(
-                    onNew: () => showDialog(
-                      context: innerContext,
-                      builder: (_) => NewChartDialog(onCreated: _handleNew),
-                    ),
-                    onOpen: () => _handleOpen(innerContext),
-                    onSave: () => _handleSave(innerContext),
-                    onSavedDesigns: () => _handleSavedDesigns(innerContext),
-                    onTextView: () => showDialog(
-                      context: innerContext,
-                      builder: (_) => ProviderScope(
-                        overrides: const [],
-                        child: Builder(
-                          builder: (ctx) => TextViewDialog(
-                            onClose: () => Navigator.pop(ctx),
-                            onOpenFile: () => _handleOpen(innerContext),
+            child: Builder(
+              builder: (scaffoldContext) {
+                final isMobile = MediaQuery.sizeOf(scaffoldContext).width < 750;
+                return Scaffold(
+                  appBar: isMobile
+                      ? MobileAppBar(
+                          onNew: () => showDialog(
+                            context: scaffoldContext,
+                            builder: (_) => NewChartDialog(onCreated: _handleNew),
                           ),
-                        ),
-                      ),
-                    ),
-                    onExportPng: () => _handleExportPng(innerContext),
-                  ),
-              Expanded(
-                child: Row(
-                  children: [
-                    if (_leftOpen)
-                      SizedBox(
-                        width: 240,
-                        child: StitchPalette(onClose: () => setState(() => _leftOpen = false)),
-                      ),
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: VisualChartView(key: _chartKey),
-                            ),
-                          ),
-                          Positioned(
-                            top: 4,
-                            left: 4,
-                            child: Material(
-                              elevation: 2,
-                              borderRadius: BorderRadius.circular(6),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(6),
-                                onTap: () => setState(() => _leftOpen = !_leftOpen),
-                                child: Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFFDDDDDD)),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: const Text('\u2630', style: TextStyle(fontSize: 18)),
+                          onOpen: () => _handleOpen(scaffoldContext),
+                          onSave: () => _handleSave(scaffoldContext),
+                          onSavedDesigns: () => _handleSavedDesigns(scaffoldContext),
+                          onTextView: () => showDialog(
+                            context: scaffoldContext,
+                            builder: (_) => ProviderScope(
+                              overrides: const [],
+                              child: Builder(
+                                builder: (ctx) => TextViewDialog(
+                                  onClose: () => Navigator.pop(ctx),
+                                  onOpenFile: () => _handleOpen(scaffoldContext),
                                 ),
                               ),
                             ),
                           ),
-                          const Positioned(
-                            bottom: 8,
-                            right: 8,
-                            child: BuildVersionBadge(),
+                          onExportPng: () => _handleExportPng(scaffoldContext),
+                          onOpenDrawer: () => Scaffold.of(scaffoldContext).openDrawer(),
+                        )
+                      : null,
+                  drawer: isMobile
+                      ? Drawer(
+                          width: 280,
+                          child: SafeArea(
+                            child: StitchPalette(
+                              onClose: () => Navigator.of(scaffoldContext).pop(),
+                            ),
                           ),
-                        ],
+                        )
+                      : null,
+                  body: Column(
+                    children: [
+                      if (!isMobile)
+                        AppToolbar(
+                          onNew: () => showDialog(
+                            context: scaffoldContext,
+                            builder: (_) => NewChartDialog(onCreated: _handleNew),
+                          ),
+                          onOpen: () => _handleOpen(scaffoldContext),
+                          onSave: () => _handleSave(scaffoldContext),
+                          onSavedDesigns: () => _handleSavedDesigns(scaffoldContext),
+                          onTextView: () => showDialog(
+                            context: scaffoldContext,
+                            builder: (_) => ProviderScope(
+                              overrides: const [],
+                              child: Builder(
+                                builder: (ctx) => TextViewDialog(
+                                  onClose: () => Navigator.pop(ctx),
+                                  onOpenFile: () => _handleOpen(scaffoldContext),
+                                ),
+                              ),
+                            ),
+                          ),
+                          onExportPng: () => _handleExportPng(scaffoldContext),
+                        ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            if (!isMobile && _leftOpen)
+                              SizedBox(
+                                width: 240,
+                                child: StitchPalette(
+                                    onClose: () => setState(() => _leftOpen = false)),
+                              ),
+                            Expanded(
+                              child: Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: VisualChartView(key: _chartKey),
+                                    ),
+                                  ),
+                                  if (!isMobile)
+                                    Positioned(
+                                      top: 4,
+                                      left: 4,
+                                      child: Material(
+                                        elevation: 2,
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(6),
+                                          onTap: () =>
+                                              setState(() => _leftOpen = !_leftOpen),
+                                          child: Container(
+                                            width: 36,
+                                            height: 36,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(
+                                                  color: const Color(0xFFDDDDDD)),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Text('\u2630',
+                                                style: TextStyle(fontSize: 18)),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  const Positioned(
+                                    bottom: 8,
+                                    right: 8,
+                                    child: BuildVersionBadge(),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              _BottomPanel(
-                isOpen: _rightOpen,
-                tabs: tabItems,
-                onToggle: () => setState(() => _rightOpen = !_rightOpen),
-              ),
-            ],
-          ),
-        ),
+                      _BottomPanel(
+                        isOpen: _rightOpen,
+                        tabs: tabItems,
+                        onToggle: () => setState(() => _rightOpen = !_rightOpen),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
       ),
     ),
   ),
