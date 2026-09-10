@@ -249,5 +249,77 @@ void main() {
       expect(find.text('Altıgen'), findsWidgets);
       expect(find.text('Sekizgen'), findsWidgets);
     });
+
+    testWidgets('Newly added round becomes active round for shape changes on canvas bar',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final initialChart = Chart.defaultChart().copyWith(
+        name: 'New Round Active Shape Test',
+        starterStitchName: 'magicRing',
+        patternRounds: [
+          PatternRound(
+            number: 1,
+            stitches: [
+              PatternStitch(kind: 'stitch', name: 'sc'),
+            ],
+          ),
+          PatternRound(
+            number: 2,
+            stitches: [
+              PatternStitch(kind: 'stitch', name: 'sc'),
+            ],
+          ),
+        ],
+      );
+
+      final container = ProviderContainer();
+      final chartNotifier = container.read(chartProvider.notifier);
+      chartNotifier.setChart(initialChart);
+      container.read(stitchStoreProvider.notifier).setActiveStitchName('sc');
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: VisualChartView(ringRadius: 50.0),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap canvas to place a stitch into Round 2 (user added stitch in round 2)
+      final center = tester.getCenter(find.byType(VisualChartView));
+      await tester.tapAt(center + const Offset(85, 0));
+      await tester.pumpAndSettle();
+
+      // Tap 'Yeni Tur' to create Round 3
+      final newRoundBtn = find.text('Yeni Tur');
+      await tester.tap(newRoundBtn);
+      await tester.pumpAndSettle();
+
+      // Verify Round 3 is created
+      expect(chartNotifier.chart.patternRounds.length, equals(3));
+      expect(chartNotifier.chart.patternRounds[2].stitches.length, equals(0));
+
+      // Verify canvas bar header shows Round 3
+      expect(find.text('Tur 3 (0 ilmek)'), findsOneWidget);
+
+      // Select 'Kare' from canvas bar shape dropdown
+      await tester.tap(find.byKey(const ValueKey('canvas_round_shape_dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Kare').last);
+      await tester.pumpAndSettle();
+
+      // Verify Round 3 is square (sides: 4), while Round 2 is NOT modified (sides: null)
+      final rounds = chartNotifier.chart.patternRounds;
+      expect(rounds[1].sides, isNull);
+      expect(rounds[2].sides, equals(4));
+    });
   });
 }

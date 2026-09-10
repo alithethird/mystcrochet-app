@@ -791,6 +791,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
 
     final connected = assignConnections(rounds);
     notifier.setChart(chart.copyWith(patternRounds: connected));
+    setState(() {
+      _selectedRoundIdx = null;
+      _selectedStitchIdx = null;
+      _hoverRoundIdx = null;
+      _hoverStitchIdx = null;
+    });
   }
 
   void _newRound() {
@@ -806,6 +812,13 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       cornerRatio: prevRound?.cornerRatio,
     ));
     notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
+    setState(() {
+      _selectedRoundIdx = null;
+      _selectedStitchIdx = null;
+      _hoverRoundIdx = null;
+      _hoverStitchIdx = null;
+    });
+    ref.read(editModeProvider.notifier).clearSelection();
   }
 
   void _adjustRoundRadius(int roundIdx, double delta) {
@@ -843,10 +856,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final connected = assignConnections(updatedRounds);
     notifier.setChart(chart.copyWith(patternRounds: connected), recordUndo: true);
     setState(() {
-      if (_selectedRoundIdx != null && _selectedRoundIdx! >= updatedRounds.length) {
-        _selectedRoundIdx = null;
-        _selectedStitchIdx = null;
-      }
+      _selectedRoundIdx = null;
+      _selectedStitchIdx = null;
       _hoverRoundIdx = null;
       _hoverStitchIdx = null;
     });
