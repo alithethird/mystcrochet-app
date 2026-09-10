@@ -489,11 +489,8 @@ List<PatternRound> assignConnections(List<PatternRound> rounds) {
         ];
       }
     }
-    out.add(PatternRound(
-      number: round.number,
+    out.add(round.copyWith(
       stitches: [...mr, ...connected],
-      isMagicRing: round.isMagicRing,
-      radiusOffset: round.radiusOffset,
     ));
     prevExpanded = connected;
   }

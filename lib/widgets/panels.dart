@@ -52,8 +52,15 @@ class PropertiesPanel extends ConsumerWidget {
               padding: EdgeInsets.zero,
               onPressed: () {
                 final notifier = ref.read(chartProvider.notifier);
+                final prevOffset = chart.patternRounds.isNotEmpty
+                    ? chart.patternRounds.last.radiusOffset
+                    : null;
                 final rounds = List<PatternRound>.from(chart.patternRounds)
-                  ..add(PatternRound(number: chart.patternRounds.length + 1, stitches: []));
+                  ..add(PatternRound(
+                    number: chart.patternRounds.length + 1,
+                    stitches: [],
+                    radiusOffset: prevOffset,
+                  ));
                 notifier.setChart(chart.copyWith(patternRounds: assignConnections(rounds)));
               },
             ),
@@ -280,10 +287,7 @@ class _ShapePanelState extends ConsumerState<ShapePanel> {
     if (fromPolygon != toPolygon) {
       migrated = chart.patternRounds.map((round) {
         final r = _approxRadiusForRound(round.number);
-        return PatternRound(
-          number: round.number,
-          isMagicRing: round.isMagicRing,
-          radiusOffset: round.radiusOffset,
+        return round.copyWith(
           stitches: round.stitches.map((s) {
             if (toPolygon) {
               // Circle -> polygon: convert drag offset (radians -> pixels).
