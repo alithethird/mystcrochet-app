@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../providers/locale_provider.dart';
 import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
 import '../providers/stitch_provider.dart';
@@ -42,6 +43,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
   @override
   Widget build(BuildContext context) {
     final stitchNotifier = ref.watch(stitchStoreProvider);
+    final strings = ref.watch(stringsProvider);
     final store = stitchNotifier.store;
     if (store.searchText.isEmpty && _searchController.text.isNotEmpty) {
       _searchController.text = '';
@@ -66,13 +68,14 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
             ),
             child: Row(
               children: [
-                const Text('İlmekler',
+                Text(strings.stitches,
                     style:
-                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 if (widget.onClose != null)
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
+                    tooltip: strings.close,
                     onPressed: widget.onClose,
                     constraints:
                         const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -89,7 +92,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                 ...categories.map((cat) => Padding(
                       padding: const EdgeInsets.only(right: 4),
                       child: _CategoryChip(
-                        label: cat,
+                        label: strings.categoryName(cat),
                         selected: activeCategory == cat,
                         onTap: () => ref
                             .read(stitchStoreProvider.notifier)
@@ -99,7 +102,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: _CategoryChip(
-                    label: 'Tümü',
+                    label: strings.all,
                     selected: activeCategory == null,
                     onTap: () => ref
                         .read(stitchStoreProvider.notifier)
@@ -133,12 +136,12 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'İlmek ara...',
+                    decoration: InputDecoration(
+                      hintText: strings.searchStitches,
                       isDense: true,
                       contentPadding:
-                          EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      border: OutlineInputBorder(),
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      border: const OutlineInputBorder(),
                     ),
                     style: const TextStyle(fontSize: 12),
                     onChanged: (v) {
@@ -151,7 +154,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                 IconButton(
                   key: const ValueKey('clear_search_button'),
                   icon: const Icon(Icons.clear, size: 18),
-                  tooltip: 'Aramayı temizle',
+                  tooltip: strings.clearSearch,
                   constraints:
                       const BoxConstraints(minWidth: 32, minHeight: 32),
                   padding: EdgeInsets.zero,
@@ -174,7 +177,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                           Icon(Icons.search_off, size: 40, color: Colors.grey[400]),
                           const SizedBox(height: 8),
                           Text(
-                            'Eşleşen ilmek bulunamadı',
+                            strings.noStitchesFound,
                             style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                             textAlign: TextAlign.center,
                           ),
@@ -184,8 +187,8 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                             TextButton.icon(
                               onPressed: _clearSearch,
                               icon: const Icon(Icons.clear, size: 16),
-                              label: const Text('Aramayı temizle',
-                                  style: TextStyle(fontSize: 12)),
+                              label: Text(strings.clearSearch,
+                                  style: const TextStyle(fontSize: 12)),
                             ),
                           ],
                         ],

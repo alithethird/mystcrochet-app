@@ -3,9 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crochet_charts/dialogs/language_selection_dialog.dart';
+import 'package:crochet_charts/dialogs/welcome_tutorial_dialog.dart';
+import 'package:crochet_charts/models/stitch_record.dart';
 import 'package:crochet_charts/l10n/app_strings.dart';
 import 'package:crochet_charts/providers/locale_provider.dart';
+import 'package:crochet_charts/providers/stitch_provider.dart';
 import 'package:crochet_charts/widgets/mobile_app_bar.dart';
+import 'package:crochet_charts/widgets/panels.dart';
+import 'package:crochet_charts/widgets/stitch_palette.dart';
 import 'package:crochet_charts/widgets/toolbar.dart';
 
 void main() {
@@ -242,6 +247,188 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(LanguageSelectionDialog), findsOneWidget);
+    });
+
+    testWidgets('StitchPalette updates strings when locale changes',
+        (WidgetTester tester) async {
+      final notifier = StitchStoreNotifier();
+      notifier.setStitches([
+        StitchRecord(
+          name: 'sc',
+          description: 'Single crochet',
+          category: ['default'],
+          wrongSide: '',
+          svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+        ),
+        StitchRecord(
+          name: 'mr',
+          description: 'Magic Ring',
+          category: ['starters'],
+          wrongSide: '',
+          svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+        ),
+      ]);
+      final container = ProviderContainer(
+        overrides: [
+          stitchStoreProvider.overrideWith((ref) => notifier),
+        ],
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: StitchPalette(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Turkish default
+      expect(find.text('İlmekler'), findsOneWidget);
+      expect(find.text('Tümü', skipOffstage: false), findsOneWidget);
+      expect(find.text('Standart', skipOffstage: false), findsOneWidget);
+      expect(find.text('Başlangıç', skipOffstage: false), findsOneWidget);
+
+      // Change locale to English
+      container.read(localeProvider.notifier).state = 'en';
+      await tester.pump();
+
+      expect(find.text('Stitches'), findsOneWidget);
+      expect(find.text('All', skipOffstage: false), findsOneWidget);
+      expect(find.text('Default', skipOffstage: false), findsOneWidget);
+      expect(find.text('Starters', skipOffstage: false), findsOneWidget);
+
+      // Change locale to German
+      container.read(localeProvider.notifier).state = 'de';
+      await tester.pump();
+
+      expect(find.text('Maschen'), findsOneWidget);
+      expect(find.text('Alle', skipOffstage: false), findsOneWidget);
+      expect(find.text('Standard', skipOffstage: false), findsOneWidget);
+      expect(find.text('Anfang', skipOffstage: false), findsOneWidget);
+
+      // Change locale to Spanish
+      container.read(localeProvider.notifier).state = 'es';
+      await tester.pump();
+
+      expect(find.text('Puntos'), findsOneWidget);
+      expect(find.text('Todos', skipOffstage: false), findsOneWidget);
+      expect(find.text('Predeterminado', skipOffstage: false), findsOneWidget);
+      expect(find.text('Iniciales', skipOffstage: false), findsOneWidget);
+    });
+
+    testWidgets('PropertiesPanel and ShapePanel update strings when locale changes',
+        (WidgetTester tester) async {
+      final container = ProviderContainer();
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    PropertiesPanel(),
+                    ShapePanel(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Turkish default
+      expect(find.text('Ad'), findsOneWidget);
+      expect(find.text('Stil'), findsOneWidget);
+      expect(find.text('Tur Sayısı'), findsOneWidget);
+      expect(find.text('Turlar:'), findsOneWidget);
+      expect(find.text('Tur Şekli'), findsOneWidget);
+
+      // Switch to English
+      container.read(localeProvider.notifier).state = 'en';
+      await tester.pump();
+
+      expect(find.text('Name'), findsOneWidget);
+      expect(find.text('Style'), findsOneWidget);
+      expect(find.text('Round Count'), findsOneWidget);
+      expect(find.text('Rounds:'), findsOneWidget);
+      expect(find.text('Round Shape'), findsOneWidget);
+
+      // Switch to German
+      container.read(localeProvider.notifier).state = 'de';
+      await tester.pump();
+
+      expect(find.text('Name'), findsOneWidget);
+      expect(find.text('Stil'), findsOneWidget);
+      expect(find.text('Rundenzahl'), findsOneWidget);
+      expect(find.text('Runden:'), findsOneWidget);
+      expect(find.text('Rundenform'), findsOneWidget);
+
+      // Switch to Spanish
+      container.read(localeProvider.notifier).state = 'es';
+      await tester.pump();
+
+      expect(find.text('Nombre'), findsOneWidget);
+      expect(find.text('Estilo'), findsOneWidget);
+      expect(find.text('Número de vueltas'), findsOneWidget);
+      expect(find.text('Vueltas:'), findsOneWidget);
+      expect(find.text('Forma de la vuelta'), findsOneWidget);
+    });
+
+    testWidgets('WelcomeTutorialDialog updates strings when locale changes',
+        (WidgetTester tester) async {
+      final container = ProviderContainer();
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: WelcomeTutorialDialog(),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Turkish default
+      expect(find.text("MystCrochet'e Hoş Geldiniz!"), findsOneWidget);
+      expect(find.text('Geç'), findsOneWidget);
+      expect(find.text('İleri'), findsOneWidget);
+      expect(find.text('Bir daha otomatik gösterme'), findsOneWidget);
+
+      // Switch to English
+      container.read(localeProvider.notifier).state = 'en';
+      await tester.pump();
+
+      expect(find.text('Welcome to MystCrochet!'), findsOneWidget);
+      expect(find.text('Skip'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
+      expect(find.text('Do not show automatically again'), findsOneWidget);
+
+      // Switch to German
+      container.read(localeProvider.notifier).state = 'de';
+      await tester.pump();
+
+      expect(find.text('Willkommen bei MystCrochet!'), findsOneWidget);
+      expect(find.text('Überspringen'), findsOneWidget);
+      expect(find.text('Weiter'), findsOneWidget);
+      expect(find.text('Nicht mehr automatisch anzeigen'), findsOneWidget);
+
+      // Switch to Spanish
+      container.read(localeProvider.notifier).state = 'es';
+      await tester.pump();
+
+      expect(find.text('¡Bienvenido a MystCrochet!'), findsOneWidget);
+      expect(find.text('Omitir'), findsOneWidget);
+      expect(find.text('Siguiente'), findsOneWidget);
+      expect(find.text('No mostrar automáticamente de nuevo'), findsOneWidget);
     });
   });
 }

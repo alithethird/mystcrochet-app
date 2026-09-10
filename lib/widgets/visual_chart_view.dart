@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../models/pattern.dart';
 import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
+import '../providers/locale_provider.dart';
 import '../providers/stitch_provider.dart';
 import '../services/stitch_replace_service.dart' as stitch_service;
 import '../utils/svg.dart';
@@ -861,9 +862,10 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       _hoverRoundIdx = null;
       _hoverStitchIdx = null;
     });
+    final strings = ref.read(stringsProvider);
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
-        content: Text('Tur ${removed.number} silindi'),
+        content: Text('${strings.round} ${removed.number} ${strings.roundDeleted}'),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -1330,6 +1332,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final chartState = ref.watch(chartProvider);
     final editState = ref.watch(editModeProvider);
     final stitchNotifier = ref.watch(stitchStoreProvider);
+    final strings = ref.watch(stringsProvider);
     final chart = chartState.chart;
     final rounds = chart.patternRounds;
     final activeName = stitchNotifier.activeStitchName;
@@ -1712,14 +1715,14 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                     // Hint text when empty (omitted during export)
                     if (!_isExporting && chart.starterStitchName == null)
                       if (!activeIsStarter)
-                        const Positioned(
+                        Positioned(
                           left: 0, right: 0, top: 0, bottom: 0,
-                          child: Center(child: Text('Grafiğinize başlamak için paletten bir başlangıç ilmeği seçin', style: hintStyle, textAlign: TextAlign.center)),
+                          child: Center(child: Text(strings.hintSelectStarter, style: hintStyle, textAlign: TextAlign.center)),
                         )
                       else
-                        const Positioned(
+                        Positioned(
                           left: 0, right: 0, top: 0, bottom: 0,
-                          child: Center(child: Text('Başlangıç ilmeğini yerleştirmek için merkeze dokunun', style: hintStyle, textAlign: TextAlign.center)),
+                          child: Center(child: Text(strings.hintTapCenter, style: hintStyle, textAlign: TextAlign.center)),
                         ),
                   ],
                 ),
@@ -1763,7 +1766,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                         mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Tur ${activeRound != null ? activeRound.number : (rounds.isEmpty ? 1 : rounds.length)} (${activeRound != null ? activeRound.stitches.length : 0} ilmek)',
+                          '${strings.round} ${activeRound != null ? activeRound.number : (rounds.isEmpty ? 1 : rounds.length)} (${activeRound != null ? activeRound.stitches.length : 0} ${strings.roundStitchesCount})',
                           style: const TextStyle(fontSize: 11),
                         ),
                         if (activeRound != null) ...[
@@ -1774,7 +1777,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                             color: const Color(0xFFCCCCCC),
                           ),
                           const SizedBox(width: 6),
-                          const Text('Boyut:', style: TextStyle(fontSize: 10, color: Color(0xFF666666))),
+                          Text('${strings.size}:', style: const TextStyle(fontSize: 10, color: Color(0xFF666666))),
                           const SizedBox(width: 4),
                           InkWell(
                             key: const ValueKey('canvas_contract_round_button'),
@@ -1814,7 +1817,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                             color: const Color(0xFFCCCCCC),
                           ),
                           const SizedBox(width: 6),
-                          const Text('Şekil:', style: TextStyle(fontSize: 10, color: Color(0xFF666666))),
+                          Text('${strings.shape}:', style: const TextStyle(fontSize: 10, color: Color(0xFF666666))),
                           const SizedBox(width: 4),
                           DropdownButtonHideUnderline(
                             child: DropdownButton<int?>(
@@ -1822,14 +1825,14 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                               value: activeRound.sides,
                               isDense: true,
                               style: const TextStyle(fontSize: 10, color: Color(0xFF333333)),
-                              items: const [
-                                DropdownMenuItem(value: null, child: Text('Varsayılan', style: TextStyle(fontSize: 10))),
-                                DropdownMenuItem(value: 0, child: Text('Daire', style: TextStyle(fontSize: 10))),
-                                DropdownMenuItem(value: 3, child: Text('Üçgen', style: TextStyle(fontSize: 10))),
-                                DropdownMenuItem(value: 4, child: Text('Kare', style: TextStyle(fontSize: 10))),
-                                DropdownMenuItem(value: 5, child: Text('Beşgen', style: TextStyle(fontSize: 10))),
-                                DropdownMenuItem(value: 6, child: Text('Altıgen', style: TextStyle(fontSize: 10))),
-                                DropdownMenuItem(value: 8, child: Text('Sekizgen', style: TextStyle(fontSize: 10))),
+                              items: [
+                                DropdownMenuItem(value: null, child: Text(strings.categoryDefault, style: const TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 0, child: Text(strings.circle, style: const TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 3, child: Text(strings.triangle, style: const TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 4, child: Text(strings.square, style: const TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 5, child: Text(strings.pentagon, style: const TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 6, child: Text(strings.hexagon, style: const TextStyle(fontSize: 10))),
+                                DropdownMenuItem(value: 8, child: Text(strings.octagon, style: const TextStyle(fontSize: 10))),
                               ],
                               onChanged: (val) => _setRoundSides(activeIdx, val),
                             ),
@@ -1846,7 +1849,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                                   : const Color(0xFFCCCCCC),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: const Text('Yeni Tur', style: TextStyle(fontSize: 10, color: Colors.white)),
+                            child: Text(strings.addRound, style: const TextStyle(fontSize: 10, color: Colors.white)),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -1861,12 +1864,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                                   : const Color(0xFFCCCCCC),
                               borderRadius: BorderRadius.circular(3),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.delete_outline, size: 12, color: Colors.white),
-                                SizedBox(width: 2),
-                                Text('Son Turu Sil', style: TextStyle(fontSize: 10, color: Colors.white)),
+                                const Icon(Icons.delete_outline, size: 12, color: Colors.white),
+                                const SizedBox(width: 2),
+                                Text(strings.deleteLastRound, style: const TextStyle(fontSize: 10, color: Colors.white)),
                               ],
                             ),
                           ),
@@ -1900,7 +1903,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                         const Icon(Icons.checklist, size: 18, color: Color(0xFF7C3AED)),
                         const SizedBox(width: 8),
                         Text(
-                          '${editState.selectedStitchKeys.length} ilmek seçildi',
+                          '${editState.selectedStitchKeys.length} ${strings.selectedStitchesCount}',
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED)),
                         ),
                         const SizedBox(width: 10),
@@ -1914,7 +1917,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                             foregroundColor: const Color(0xFF7C3AED),
                           ),
                           icon: const Icon(Icons.swap_horiz, size: 16),
-                          label: const Text('Değiştir (Paletten Seç)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          label: Text(strings.replaceFromPalette, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                           onPressed: () {
                             ref.read(editModeProvider.notifier).setMode(EditMode.replace);
                           },
@@ -1928,13 +1931,13 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                             foregroundColor: const Color(0xFFDC2626),
                           ),
                           icon: const Icon(Icons.delete_outline, size: 16),
-                          label: const Text('Sil', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          label: Text(strings.delete, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                           onPressed: deleteSelectedStitches,
                         ),
                         const SizedBox(width: 6),
                         IconButton(
                           icon: const Icon(Icons.close, size: 16),
-                          tooltip: 'Seçimi Temizle',
+                          tooltip: strings.clearSelection,
                           constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                           padding: EdgeInsets.zero,
                           onPressed: () {
@@ -1968,14 +1971,14 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                       children: [
                         const Icon(Icons.checklist, size: 18, color: Color(0xFF7C3AED)),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Seçmek istediğiniz ilmeklere dokunun (birden fazla seçebilirsiniz)',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
+                        Text(
+                          strings.selectionMultiHint,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
                         ),
                         const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.close, size: 16),
-                          tooltip: 'İptal',
+                          tooltip: strings.cancel,
                           constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                           padding: EdgeInsets.zero,
                           onPressed: () {
@@ -2010,13 +2013,13 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                         const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF7C3AED)),
                         const SizedBox(width: 8),
                         if (editState.replaceStitchName == null) ...[
-                          const Text(
-                            '1. Grafikten değiştirmek istediğiniz ilmeğe dokunun',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
+                          Text(
+                            strings.replaceStep1,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
                           ),
                         ] else ...[
                           Text(
-                            'Seçilen: ${editState.replaceStitchName} • 2. Paletten yeni ilmeği seçin',
+                            '${strings.replaceStep2Selected}: ${editState.replaceStitchName} • ${strings.replaceStep2Choose}',
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF7C3AED)),
                           ),
                         ],
@@ -2045,8 +2048,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                               const SizedBox(width: 4),
                               Text(
                                 editState.replaceStitchName != null && editState.bulkReplace
-                                    ? 'Toplu Değiştir (${editState.replaceMatchCount ?? 0} adet)'
-                                    : 'Toplu Değiştir',
+                                    ? strings.bulkReplaceWithCount(editState.replaceMatchCount ?? 0)
+                                    : strings.bulkReplace,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: editState.bulkReplace ? FontWeight.bold : FontWeight.normal,
@@ -2059,7 +2062,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                         const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.close, size: 16),
-                          tooltip: 'İptal',
+                          tooltip: strings.cancel,
                           constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                           padding: EdgeInsets.zero,
                           onPressed: () {

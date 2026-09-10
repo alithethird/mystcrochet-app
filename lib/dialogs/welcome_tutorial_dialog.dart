@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_strings.dart';
+import '../providers/locale_provider.dart';
 
 class TutorialStep {
   final IconData icon;
@@ -67,57 +70,6 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
   int _currentPage = 0;
   late bool _dontShowAgain;
 
-  static const List<TutorialStep> _steps = [
-    TutorialStep(
-      icon: Icons.auto_awesome,
-      iconColor: Color(0xFF8B5CF6),
-      title: "MystCrochet'e Hoş Geldiniz!",
-      description:
-          'Tığ işi ve amigurumi dairesel şemalarınızı kolayca tasarlayın, görselleştirin ve dışa aktarın.',
-      highlights: [
-        '✨ Sihirli halka ve zincirle zahmetsiz başlangıç',
-        '📐 Dairesel veya çokgen (kare, altıgen vb.) turlar',
-        '📱 Dokunmatik ve mobil cihazlara tam uyumlu arayüz',
-      ],
-    ),
-    TutorialStep(
-      icon: Icons.touch_app_outlined,
-      iconColor: Color(0xFF3B82F6),
-      title: 'Başlangıç ve İlmek Ekleme',
-      description:
-          'Şemanıza başlamak ve tuval üzerine ilmek yerleştirmek oldukça pratiktir:',
-      highlights: [
-        '1. Paletten başlangıç ilmeğinizi (Sihirli Halka vb.) seçip merkeze dokunun.',
-        '2. Paletten istediğiniz ilmeği (sc, dc, hdc vb.) seçin.',
-        '3. Tuvalde önceki turun ilmeklerinin yakınına dokunarak yeni ilmekleri ekleyin.',
-      ],
-    ),
-    TutorialStep(
-      icon: Icons.hexagon_outlined,
-      iconColor: Color(0xFF10B981),
-      title: 'Turlar ve Geometrik Şekiller',
-      description:
-          'Şemanızın formunu ve tur boyutlarını dilediğiniz gibi kişiselleştirin:',
-      highlights: [
-        '📏 Tur Çubuğu: Tuval üzerindeki bardan tur boyutunu (+ / -) ayarlayabilirsiniz.',
-        '🔷 Geometrik Şekiller: Turlarınızı Daire, Kare, Altıgen gibi formlara dönüştürün.',
-        '➕ Yeni Tur: Bir sonraki tura geçmek için "Yeni Tur" butonuna dokunmanız yeterlidir.',
-      ],
-    ),
-    TutorialStep(
-      icon: Icons.pinch_outlined,
-      iconColor: Color(0xFFF59E0B),
-      title: 'Doğal Kaydırma & Düzenleme',
-      description:
-          'Dokunmatik ekranda tuval üzerinde rahatça gezinin ve ilmeklerinizi yönetin:',
-      highlights: [
-        '🖐️ Tek Parmak Kaydırma: Turların dışındaki boş alana dokunup sürükleyerek tuvali kaydırın.',
-        '🤏 İki Parmak Yakınlaşma: İki parmağınızla kıstırıp açarak (pinch) yakınlaştırın.',
-        '🛠️ Araç Çubuğu: Seç, Değiştir, Sil ve Taşı modlarıyla ilmeklerinizi kolayca düzenleyin.',
-      ],
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -138,7 +90,7 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
   }
 
   void _nextPage() {
-    if (_currentPage < _steps.length - 1) {
+    if (_currentPage < 3) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
@@ -159,7 +111,71 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isLast = _currentPage == _steps.length - 1;
+    bool hasScope = false;
+    try {
+      ProviderScope.containerOf(context, listen: false);
+      hasScope = true;
+    } catch (_) {}
+
+    if (hasScope) {
+      return Consumer(
+        builder: (context, ref, _) {
+          final strings = ref.watch(stringsProvider);
+          return _buildDialog(context, strings);
+        },
+      );
+    }
+    return _buildDialog(context, const AppStrings('tr'));
+  }
+
+  Widget _buildDialog(BuildContext context, AppStrings strings) {
+    final steps = [
+      TutorialStep(
+        icon: Icons.auto_awesome,
+        iconColor: const Color(0xFF8B5CF6),
+        title: strings.tutorialWelcomeTitle,
+        description: strings.tutorialWelcomeDesc,
+        highlights: [
+          strings.tutorialWelcomeH1,
+          strings.tutorialWelcomeH2,
+          strings.tutorialWelcomeH3,
+        ],
+      ),
+      TutorialStep(
+        icon: Icons.touch_app_outlined,
+        iconColor: const Color(0xFF3B82F6),
+        title: strings.tutorialStep2Title,
+        description: strings.tutorialStep2Desc,
+        highlights: [
+          strings.tutorialStep2H1,
+          strings.tutorialStep2H2,
+          strings.tutorialStep2H3,
+        ],
+      ),
+      TutorialStep(
+        icon: Icons.hexagon_outlined,
+        iconColor: const Color(0xFF10B981),
+        title: strings.tutorialStep3Title,
+        description: strings.tutorialStep3Desc,
+        highlights: [
+          strings.tutorialStep3H1,
+          strings.tutorialStep3H2,
+          strings.tutorialStep3H3,
+        ],
+      ),
+      TutorialStep(
+        icon: Icons.pinch_outlined,
+        iconColor: const Color(0xFFF59E0B),
+        title: strings.tutorialStep4Title,
+        description: strings.tutorialStep4Desc,
+        highlights: [
+          strings.tutorialStep4H1,
+          strings.tutorialStep4H2,
+          strings.tutorialStep4H3,
+        ],
+      ),
+    ];
+    final isLast = _currentPage == steps.length - 1;
     final theme = Theme.of(context);
 
     return Dialog(
@@ -184,15 +200,15 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _steps[_currentPage].iconColor.withValues(alpha: 0.12),
+                      color: steps[_currentPage].iconColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '${_currentPage + 1} / ${_steps.length}',
+                      '${_currentPage + 1} / ${steps.length}',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: _steps[_currentPage].iconColor,
+                        color: steps[_currentPage].iconColor,
                       ),
                     ),
                   ),
@@ -212,9 +228,9 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
                 child: PageView.builder(
                   controller: _pageController,
                   onPageChanged: (index) => setState(() => _currentPage = index),
-                  itemCount: _steps.length,
+                  itemCount: steps.length,
                   itemBuilder: (context, index) {
-                    final step = _steps[index];
+                    final step = steps[index];
                     return SingleChildScrollView(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -297,7 +313,7 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
               // Page Indicators
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_steps.length, (index) {
+                children: List.generate(steps.length, (index) {
                   final active = index == _currentPage;
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -306,7 +322,7 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
                     height: 6,
                     decoration: BoxDecoration(
                       color: active
-                          ? _steps[_currentPage].iconColor
+                          ? steps[_currentPage].iconColor
                           : const Color(0xFFCBD5E1),
                       borderRadius: BorderRadius.circular(3),
                     ),
@@ -335,9 +351,11 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Text(
-                        'Bir daha otomatik gösterme',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      Flexible(
+                        child: Text(
+                          strings.tutorialDontShowAgain,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        ),
                       ),
                     ],
                   ),
@@ -353,13 +371,13 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
                     TextButton(
                       key: const ValueKey('welcome_tutorial_prev_button'),
                       onPressed: _prevPage,
-                      child: const Text('Geri'),
+                      child: Text(strings.tutorialBack),
                     )
                   else
                     TextButton(
                       key: const ValueKey('welcome_tutorial_skip_button'),
                       onPressed: _finish,
-                      child: const Text('Geç', style: TextStyle(color: Color(0xFF94A3B8))),
+                      child: Text(strings.tutorialSkip, style: const TextStyle(color: Color(0xFF94A3B8))),
                     ),
                   ElevatedButton(
                     key: const ValueKey('welcome_tutorial_next_button'),
@@ -373,7 +391,7 @@ class _WelcomeTutorialDialogState extends State<WelcomeTutorialDialog> {
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                     ),
                     child: Text(
-                      isLast ? 'Hemen Başla' : 'İleri',
+                      isLast ? strings.tutorialStart : strings.tutorialNext,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
