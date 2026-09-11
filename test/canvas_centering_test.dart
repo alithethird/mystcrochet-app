@@ -132,16 +132,109 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tap hint center text ("Başlangıç ilmeğini yerleştirmek için merkeze dokunun")
-      expect(find.text('Başlangıç ilmeğini yerleştirmek için merkeze dokunun'), findsOneWidget);
-
-      // Tap dead center of screen (400, 300)
-      await tester.tapAt(const Offset(400, 300));
+      // Tap directly on the hint card
+      final hintFinder = find.text('Başlangıç ilmeğini yerleştirmek için merkeze dokunun');
+      expect(hintFinder, findsOneWidget);
+      await tester.tap(hintFinder);
       await tester.pumpAndSettle();
 
       // Chart should now have starter stitch set
       final chart = container.read(chartProvider).chart;
       expect(chart.starterStitchName, equals('mr'));
+    });
+
+    testWidgets('Round bar is horizontally centered on desktop (1280x800)', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final container = ProviderContainer();
+      // Set starter stitch and a round so round bar is visible
+      final currentChart = container.read(chartProvider).chart;
+      container.read(chartProvider.notifier).setChart(
+        currentChart.copyWith(
+          starterStitchName: 'mr',
+          patternRounds: const [],
+        ),
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 1280,
+                height: 800,
+                child: VisualChartView(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find the round bar text
+      final roundTextFinder = find.textContaining('Tur 1');
+      expect(roundTextFinder, findsOneWidget);
+
+      // Find the container wrapping the round bar inside Positioned top: 6
+      final centerFinder = find.ancestor(
+        of: roundTextFinder,
+        matching: find.byType(Center),
+      );
+      expect(centerFinder, findsWidgets);
+
+      // The round bar container should be horizontally centered at 640.0
+      final roundBarContainer = find.ancestor(
+        of: roundTextFinder,
+        matching: find.byType(Container),
+      ).first;
+      final roundBarCenter = tester.getCenter(roundBarContainer);
+      expect((roundBarCenter.dx - 640.0).abs(), lessThan(2.0));
+    });
+
+    testWidgets('Round bar is horizontally centered on mobile (400x800)', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final container = ProviderContainer();
+      final currentChart = container.read(chartProvider).chart;
+      container.read(chartProvider.notifier).setChart(
+        currentChart.copyWith(
+          starterStitchName: 'mr',
+          patternRounds: const [],
+        ),
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 400,
+                height: 800,
+                child: VisualChartView(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final roundTextFinder = find.textContaining('Tur 1');
+      expect(roundTextFinder, findsOneWidget);
+
+      final roundBarContainer = find.ancestor(
+        of: roundTextFinder,
+        matching: find.byType(Container),
+      ).first;
+      final roundBarCenter = tester.getCenter(roundBarContainer);
+      expect((roundBarCenter.dx - 200.0).abs(), lessThan(2.0));
     });
   });
 }

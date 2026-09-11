@@ -649,7 +649,8 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final isStarter = record?.category.contains('starters') ?? false;
 
     // Place / replace starter when close to the center
-    if (isStarter && dist < 25) {
+    final starterThreshold = max(45.0, widget.ringRadius + 15.0);
+    if (isStarter && dist <= starterThreshold) {
       notifier.setChart(chart.copyWith(starterStitchName: activeName));
       ref.read(soundServiceProvider).play(SoundEffect.stitchPop);
       return;
@@ -1776,10 +1777,12 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     ),
           if (chart.starterStitchName != null)
             Positioned(
-              left: MediaQuery.sizeOf(context).width < 750 ? 12.0 : 50.0,
               top: 6.0,
-              child: Builder(
-                builder: (context) {
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Builder(
+                  builder: (context) {
                   final isMobile = MediaQuery.sizeOf(context).width < 750;
                   final mappedSelected = _selectedRoundIdx != null ? _visualToChartRound[_selectedRoundIdx!] : null;
                   final activeIdx = (mappedSelected != null && mappedSelected < rounds.length)
@@ -1922,6 +1925,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                 },
               ),
             ),
+          ),
           if (!_isExporting && editState.selectedStitchKeys.isNotEmpty)
             Positioned(
               top: 8,
@@ -2119,38 +2123,72 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
               ),
             ),
           // Hint text when chart is empty - centered on screen for both mobile and web
-          if (!_isExporting && chart.starterStitchName == null)
+          if (!_isExporting && chart.starterStitchName == null && !rounds.any((r) => r.stitches.isNotEmpty))
             Positioned.fill(
               child: IgnorePointer(
+                ignoring: !activeIsStarter,
                 child: Center(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFDCDCDC)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x14000000),
-                          blurRadius: 10,
-                          offset: Offset(0, 3),
+                  child: MouseRegion(
+                    cursor: activeIsStarter ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                    child: GestureDetector(
+                      behavior: activeIsStarter ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+                      onTap: activeIsStarter
+                        ? () {
+                            if (activeName != null && activeName.isNotEmpty) {
+                              final notifier = ref.read(chartProvider.notifier);
+                              notifier.setChart(notifier.chart.copyWith(starterStitchName: activeName));
+                              ref.read(soundServiceProvider).play(SoundEffect.stitchPop);
+                            }
+                          }
+                        : null,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: activeIsStarter
+                              ? const Color(0xFF7C3AED).withValues(alpha: 0.5)
+                              : const Color(0xFFDCDCDC),
+                          width: activeIsStarter ? 1.5 : 1.0,
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      activeIsStarter ? strings.hintTapCenter : strings.hintSelectStarter,
-                      style: const TextStyle(
-                        color: Color(0xFF555555),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        boxShadow: [
+                          BoxShadow(
+                            color: activeIsStarter
+                                ? const Color(0xFF7C3AED).withValues(alpha: 0.15)
+                                : const Color(0x14000000),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (activeIsStarter) ...[
+                            const Icon(Icons.touch_app, size: 18, color: Color(0xFF7C3AED)),
+                            const SizedBox(width: 8),
+                          ],
+                          Flexible(
+                            child: Text(
+                              activeIsStarter ? strings.hintTapCenter : strings.hintSelectStarter,
+                              style: TextStyle(
+                                color: activeIsStarter ? const Color(0xFF7C3AED) : const Color(0xFF555555),
+                                fontSize: 14,
+                                fontWeight: activeIsStarter ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
+          ),
         ],
       ),
     );
