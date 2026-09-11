@@ -588,6 +588,12 @@ class VisualChartViewState extends ConsumerState<VisualChartView> {
   Offset? _pinchLastMidpoint;
   bool _isPinching = false;
 
+  // Viewport centering state
+  bool _hasCentered = false;
+  double? _lastHalf;
+  Size? _lastViewportSize;
+  bool _userHasInteracted = false;
+
   Future<Uint8List?> capturePng({
     double pixelRatio = 2.0,
     bool includeGuidelines = true,
@@ -1332,7 +1338,9 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
   Widget build(BuildContext context) {
     ref.listen<int>(chartProvider.select((s) => s.loadId), (prev, next) {
       if (prev != null && prev != next) {
-        _transform.value = Matrix4.identity();
+        _hasCentered = false;
+        _userHasInteracted = false;
+        _lastHalf = null;
         setState(() {
           _selectedRoundIdx = null;
           _selectedStitchIdx = null;
@@ -1393,7 +1401,6 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     const margin = 60.0;
     final svgSize = max(200.0, (maxR + margin) * 2);
     final half = svgSize / 2;
-    const hintStyle = TextStyle(color: Color(0xFF999999), fontSize: 13);
 
     // Starter SVG if placed
     Widget? starterWidget;
@@ -1418,13 +1425,42 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
       }
     }
 
-    return Container(
-      key: _viewKey,
-      color: Colors.white,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Listener(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportWidth = constraints.maxWidth;
+        final viewportHeight = constraints.maxHeight;
+
+        if (viewportWidth.isFinite && viewportHeight.isFinite && viewportWidth > 0 && viewportHeight > 0) {
+          if (!_hasCentered) {
+            final tx = (viewportWidth / 2) - half;
+            final ty = (viewportHeight / 2) - half;
+            _transform.value.setIdentity();
+            _transform.value.translateByDouble(tx, ty, 0, 1);
+            _hasCentered = true;
+            _lastHalf = half;
+            _lastViewportSize = Size(viewportWidth, viewportHeight);
+          } else if (!_userHasInteracted && _lastViewportSize != null &&
+              (_lastViewportSize!.width != viewportWidth || _lastViewportSize!.height != viewportHeight)) {
+            final tx = (viewportWidth / 2) - half;
+            final ty = (viewportHeight / 2) - half;
+            _transform.value.setIdentity();
+            _transform.value.translateByDouble(tx, ty, 0, 1);
+            _lastHalf = half;
+            _lastViewportSize = Size(viewportWidth, viewportHeight);
+          } else if (_lastHalf != null && _lastHalf != half) {
+            final dHalf = half - _lastHalf!;
+            _transform.value.translateByDouble(-dHalf, -dHalf, 0, 1);
+            _lastHalf = half;
+          }
+        }
+
+        return Container(
+          key: _viewKey,
+          color: Colors.white,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Listener(
         onPointerDown: (event) {
           _activePointers[event.pointer] = event.position;
 
@@ -1478,6 +1514,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
 
           // Two-finger pinch zoom and pan (Task #33)
           if (_isPinching && _activePointers.length >= 2) {
+            _userHasInteracted = true;
             final p1 = _activePointers.values.elementAt(0);
             final p2 = _activePointers.values.elementAt(1);
             final newDistance = (p1 - p2).distance;
@@ -1522,6 +1559,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
             final delta = event.position - _canvasPanLast!;
             if ((event.position - _canvasPanStart!).distance > 4.0) {
               _hasCanvasPanned = true;
+              _userHasInteracted = true;
             }
             final scale = _transform.value.getMaxScaleOnAxis();
             _transform.value.translateByDouble(delta.dx / scale, delta.dy / scale, 0, 1);
@@ -1532,6 +1570,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
 
           if (event.pointer == _middleDragPointer && _middleDragLast != null) {
             if (event.buttons == kMiddleMouseButton) {
+              _userHasInteracted = true;
               final scale = _transform.value.getMaxScaleOnAxis();
               final dx = event.position.dx - _middleDragLast!.dx;
               final dy = event.position.dy - _middleDragLast!.dy;
@@ -1589,6 +1628,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
         onPointerSignal: (event) {
           if (_dragPointer != null || _dragRoundIdx != null) return;
           if (event is PointerScrollEvent) {
+            _userHasInteracted = true;
             final scale = _transform.value.getMaxScaleOnAxis();
             final isCtrlOrMeta = HardwareKeyboard.instance.isControlPressed ||
                 HardwareKeyboard.instance.isMetaPressed;
@@ -1724,19 +1764,6 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                           selectedKeys: _isExporting ? null : editState.selectedStitchKeys,
                           isDeleteMode: editState.mode == EditMode.delete,
                           isReplaceMode: editState.mode == EditMode.replace || editState.mode == EditMode.select,
-                        ),
-
-                    // Hint text when empty (omitted during export)
-                    if (!_isExporting && chart.starterStitchName == null)
-                      if (!activeIsStarter)
-                        Positioned(
-                          left: 0, right: 0, top: 0, bottom: 0,
-                          child: Center(child: Text(strings.hintSelectStarter, style: hintStyle, textAlign: TextAlign.center)),
-                        )
-                      else
-                        Positioned(
-                          left: 0, right: 0, top: 0, bottom: 0,
-                          child: Center(child: Text(strings.hintTapCenter, style: hintStyle, textAlign: TextAlign.center)),
                         ),
                   ],
                 ),
@@ -2091,9 +2118,44 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                 ),
               ),
             ),
+          // Hint text when chart is empty - centered on screen for both mobile and web
+          if (!_isExporting && chart.starterStitchName == null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFDCDCDC)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x14000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      activeIsStarter ? strings.hintTapCenter : strings.hintSelectStarter,
+                      style: const TextStyle(
+                        color: Color(0xFF555555),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
+  },
+);
   }
 
   List<Widget> _buildRound(
