@@ -6,6 +6,7 @@ import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
 import '../providers/locale_provider.dart';
 import '../services/stitch_replace_service.dart';
+import '../services/sound_service.dart';
 import 'toolbar.dart';
 
 class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
@@ -40,6 +41,8 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final chartState = ref.watch(chartProvider);
     final editState = ref.watch(editModeProvider);
     final strings = ref.watch(stringsProvider);
+    final soundEnabled = ref.watch(soundEffectsEnabledProvider);
+    final soundService = ref.read(soundServiceProvider);
     final currentLang = ref.watch(localeProvider);
     final currentLangName = AppStrings.supportedLanguages
         .firstWhere((l) => l['code'] == currentLang, orElse: () => {'name': 'Türkçe'})['name'];
@@ -62,7 +65,10 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                   IconButton(
                     icon: const Icon(Icons.menu, size: 22),
                     tooltip: strings.stitchPalette,
-                    onPressed: onOpenDrawer,
+                    onPressed: () {
+                      soundService.play(SoundEffect.click);
+                      onOpenDrawer();
+                    },
                   ),
                   Expanded(
                     child: EditableChartTitle(
@@ -73,7 +79,10 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     icon: const Icon(Icons.undo, size: 20),
                     tooltip: strings.undo,
                     onPressed: chartState.canUndo
-                        ? () => ref.read(chartProvider.notifier).undo()
+                        ? () {
+                            soundService.play(SoundEffect.click);
+                            ref.read(chartProvider.notifier).undo();
+                          }
                         : null,
                     constraints:
                         const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -83,7 +92,10 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     icon: const Icon(Icons.redo, size: 20),
                     tooltip: strings.redo,
                     onPressed: chartState.canRedo
-                        ? () => ref.read(chartProvider.notifier).redo()
+                        ? () {
+                            soundService.play(SoundEffect.click);
+                            ref.read(chartProvider.notifier).redo();
+                          }
                         : null,
                     constraints:
                         const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -93,7 +105,10 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     IconButton(
                       icon: const Icon(Icons.tune, size: 20),
                       tooltip: '${strings.properties} & ${strings.shape}',
-                      onPressed: onOpenEndDrawer,
+                      onPressed: () {
+                        soundService.play(SoundEffect.click);
+                        onOpenEndDrawer!();
+                      },
                       constraints:
                           const BoxConstraints(minWidth: 36, minHeight: 36),
                       padding: EdgeInsets.zero,
@@ -104,30 +119,45 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                     onSelected: (val) {
                       switch (val) {
                         case 'properties':
+                          soundService.play(SoundEffect.click);
                           onOpenEndDrawer?.call();
                           break;
                         case 'new':
+                          soundService.play(SoundEffect.click);
                           onNew();
                           break;
                         case 'open':
+                          soundService.play(SoundEffect.click);
                           onOpen();
                           break;
                         case 'save':
+                          soundService.play(SoundEffect.success);
                           onSave();
                           break;
                         case 'saved_designs':
+                          soundService.play(SoundEffect.click);
                           onSavedDesigns();
                           break;
                         case 'export_png':
+                          soundService.play(SoundEffect.success);
                           onExportPng();
                           break;
                         case 'text_view':
+                          soundService.play(SoundEffect.click);
                           onTextView();
                           break;
                         case 'language':
+                          soundService.play(SoundEffect.click);
                           LanguageSelectionDialog.show(context);
                           break;
+                        case 'sound_effects':
+                          ref.read(soundEffectsEnabledProvider.notifier).toggle();
+                          if (!soundEnabled) {
+                            soundService.play(SoundEffect.click);
+                          }
+                          break;
                         case 'tutorial':
+                          soundService.play(SoundEffect.click);
                           onTutorial?.call();
                           break;
                       }
@@ -245,6 +275,26 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                           ],
                         ),
                       ),
+                      PopupMenuItem(
+                        key: const ValueKey('mobile_sound_effects'),
+                        value: 'sound_effects',
+                        child: Row(
+                          children: [
+                            Icon(
+                              soundEnabled ? Icons.volume_up : Icons.volume_off,
+                              size: 18,
+                              color: soundEnabled ? const Color(0xFF3B82F6) : Colors.grey[600],
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${strings.soundEffects}: ${soundEnabled ? strings.soundOn : strings.soundOff}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       if (onTutorial != null) ...[
                         const PopupMenuDivider(),
                         PopupMenuItem(
@@ -284,9 +334,12 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                           ? '${strings.select} (${editState.selectedStitchKeys.length})'
                           : strings.select,
                       selected: editState.mode == EditMode.select,
-                      onTap: () => ref
-                          .read(editModeProvider.notifier)
-                          .setMode(EditMode.select),
+                      onTap: () {
+                        soundService.play(SoundEffect.click);
+                        ref
+                            .read(editModeProvider.notifier)
+                            .setMode(EditMode.select);
+                      },
                     ),
                     const SizedBox(width: 4),
                     _MobileToolChip(
@@ -295,9 +348,12 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                           ? '${strings.replace} (${editState.selectedStitchKeys.length})'
                           : strings.replace,
                       selected: editState.mode == EditMode.replace,
-                      onTap: () => ref
-                          .read(editModeProvider.notifier)
-                          .setMode(EditMode.replace),
+                      onTap: () {
+                        soundService.play(SoundEffect.click);
+                        ref
+                            .read(editModeProvider.notifier)
+                            .setMode(EditMode.replace);
+                      },
                     ),
                     const SizedBox(width: 4),
                     _MobileToolChip(
@@ -315,6 +371,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                             selectedKeys: editState.selectedStitchKeys,
                           );
                           if (res.deletedCount > 0) {
+                            soundService.play(SoundEffect.delete);
                             chartNotifier.setChart(res.updatedChart,
                                 recordUndo: true);
                             ref
@@ -331,6 +388,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                             );
                           }
                         } else {
+                          soundService.play(SoundEffect.click);
                           ref
                               .read(editModeProvider.notifier)
                               .setMode(EditMode.delete);
@@ -342,18 +400,24 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                       icon: Icons.open_with,
                       label: strings.move,
                       selected: editState.mode == EditMode.move,
-                      onTap: () => ref
-                          .read(editModeProvider.notifier)
-                          .setMode(EditMode.move),
+                      onTap: () {
+                        soundService.play(SoundEffect.click);
+                        ref
+                            .read(editModeProvider.notifier)
+                            .setMode(EditMode.move);
+                      },
                     ),
                     const SizedBox(width: 4),
                     _MobileToolChip(
                       icon: Icons.pan_tool,
                       label: strings.pan,
                       selected: editState.mode == EditMode.pan,
-                      onTap: () => ref
-                          .read(editModeProvider.notifier)
-                          .setMode(EditMode.pan),
+                      onTap: () {
+                        soundService.play(SoundEffect.click);
+                        ref
+                            .read(editModeProvider.notifier)
+                            .setMode(EditMode.pan);
+                      },
                     ),
                   ],
                 ),

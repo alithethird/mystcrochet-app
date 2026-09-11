@@ -6,6 +6,7 @@ import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
 import '../providers/locale_provider.dart';
 import '../services/stitch_replace_service.dart';
+import '../services/sound_service.dart';
 
 class AppToolbar extends ConsumerWidget {
   final VoidCallback onNew;
@@ -32,6 +33,8 @@ class AppToolbar extends ConsumerWidget {
     final editState = ref.watch(editModeProvider);
     final chartState = ref.watch(chartProvider);
     final strings = ref.watch(stringsProvider);
+    final soundEnabled = ref.watch(soundEffectsEnabledProvider);
+    final soundService = ref.read(soundServiceProvider);
     final currentLang = ref.watch(localeProvider);
     final currentLangName = AppStrings.supportedLanguages
         .firstWhere((l) => l['code'] == currentLang, orElse: () => {'name': 'Türkçe'})['name'];
@@ -41,19 +44,28 @@ class AppToolbar extends ConsumerWidget {
         icon: Icons.auto_fix_high,
         label: strings.stitch,
         selected: editState.mode == EditMode.stitch,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.stitch),
+        onTap: () {
+          soundService.play(SoundEffect.click);
+          ref.read(editModeProvider.notifier).setMode(EditMode.stitch);
+        },
       ),
       _ToolButton(
         icon: Icons.checklist,
         label: editState.selectedStitchKeys.isNotEmpty ? '${strings.select} (${editState.selectedStitchKeys.length})' : strings.select,
         selected: editState.mode == EditMode.select,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.select),
+        onTap: () {
+          soundService.play(SoundEffect.click);
+          ref.read(editModeProvider.notifier).setMode(EditMode.select);
+        },
       ),
       _ToolButton(
         icon: Icons.swap_horiz,
         label: editState.selectedStitchKeys.isNotEmpty ? '${strings.replace} (${editState.selectedStitchKeys.length})' : strings.replace,
         selected: editState.mode == EditMode.replace,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.replace),
+        onTap: () {
+          soundService.play(SoundEffect.click);
+          ref.read(editModeProvider.notifier).setMode(EditMode.replace);
+        },
       ),
       _ToolButton(
         icon: Icons.delete_outline,
@@ -67,6 +79,7 @@ class AppToolbar extends ConsumerWidget {
               selectedKeys: editState.selectedStitchKeys,
             );
             if (res.deletedCount > 0) {
+              soundService.play(SoundEffect.delete);
               chartNotifier.setChart(res.updatedChart, recordUndo: true);
               ref.read(editModeProvider.notifier).clearSelection();
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -79,6 +92,7 @@ class AppToolbar extends ConsumerWidget {
               );
             }
           } else {
+            soundService.play(SoundEffect.click);
             ref.read(editModeProvider.notifier).setMode(EditMode.delete);
           }
         },
@@ -87,13 +101,19 @@ class AppToolbar extends ConsumerWidget {
         icon: Icons.open_with,
         label: strings.move,
         selected: editState.mode == EditMode.move,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.move),
+        onTap: () {
+          soundService.play(SoundEffect.click);
+          ref.read(editModeProvider.notifier).setMode(EditMode.move);
+        },
       ),
       _ToolButton(
         icon: Icons.pan_tool,
         label: strings.pan,
         selected: editState.mode == EditMode.pan,
-        onTap: () => ref.read(editModeProvider.notifier).setMode(EditMode.pan),
+        onTap: () {
+          soundService.play(SoundEffect.click);
+          ref.read(editModeProvider.notifier).setMode(EditMode.pan);
+        },
       ),
     ];
 
@@ -101,13 +121,23 @@ class AppToolbar extends ConsumerWidget {
       IconButton(
         icon: const Icon(Icons.undo, size: 20),
         tooltip: strings.undo,
-        onPressed: chartState.canUndo ? () => ref.read(chartProvider.notifier).undo() : null,
+        onPressed: chartState.canUndo
+            ? () {
+                soundService.play(SoundEffect.click);
+                ref.read(chartProvider.notifier).undo();
+              }
+            : null,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       IconButton(
         icon: const Icon(Icons.redo, size: 20),
         tooltip: strings.redo,
-        onPressed: chartState.canRedo ? () => ref.read(chartProvider.notifier).redo() : null,
+        onPressed: chartState.canRedo
+            ? () {
+                soundService.play(SoundEffect.click);
+                ref.read(chartProvider.notifier).redo();
+              }
+            : null,
         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
       ),
       if (onSavedDesigns != null)
@@ -115,7 +145,10 @@ class AppToolbar extends ConsumerWidget {
           key: const ValueKey('toolbar_saved_designs'),
           icon: const Icon(Icons.collections_bookmark_outlined, size: 20),
           tooltip: strings.savedDesigns,
-          onPressed: onSavedDesigns,
+          onPressed: () {
+            soundService.play(SoundEffect.click);
+            onSavedDesigns!();
+          },
           constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
       if (onExportPng != null)
@@ -123,7 +156,10 @@ class AppToolbar extends ConsumerWidget {
           key: const ValueKey('toolbar_export_png'),
           icon: const Icon(Icons.image_outlined, size: 20),
           tooltip: strings.exportPng,
-          onPressed: onExportPng,
+          onPressed: () {
+            soundService.play(SoundEffect.success);
+            onExportPng!();
+          },
           constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
       PopupMenuButton<String>(
@@ -135,21 +171,33 @@ class AppToolbar extends ConsumerWidget {
         onSelected: (val) {
           switch (val) {
             case 'new':
+              soundService.play(SoundEffect.click);
               onNew();
               break;
             case 'open':
+              soundService.play(SoundEffect.click);
               onOpen();
               break;
             case 'save':
+              soundService.play(SoundEffect.success);
               onSave();
               break;
             case 'text_view':
+              soundService.play(SoundEffect.click);
               onTextView();
               break;
             case 'language':
+              soundService.play(SoundEffect.click);
               LanguageSelectionDialog.show(context);
               break;
+            case 'sound_effects':
+              ref.read(soundEffectsEnabledProvider.notifier).toggle();
+              if (!soundEnabled) {
+                soundService.play(SoundEffect.click);
+              }
+              break;
             case 'tutorial':
+              soundService.play(SoundEffect.click);
               onTutorial?.call();
               break;
           }
@@ -205,6 +253,26 @@ class AppToolbar extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     '${strings.language}: $currentLangName',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            key: const ValueKey('toolbar_sound_effects'),
+            value: 'sound_effects',
+            child: Row(
+              children: [
+                Icon(
+                  soundEnabled ? Icons.volume_up : Icons.volume_off,
+                  size: 18,
+                  color: soundEnabled ? const Color(0xFF3B82F6) : Colors.grey[600],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${strings.soundEffects}: ${soundEnabled ? strings.soundOn : strings.soundOff}',
                     style: const TextStyle(fontSize: 13),
                   ),
                 ),

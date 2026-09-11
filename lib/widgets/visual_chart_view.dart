@@ -12,6 +12,7 @@ import '../providers/edit_mode_provider.dart';
 import '../providers/locale_provider.dart';
 import '../providers/stitch_provider.dart';
 import '../services/stitch_replace_service.dart' as stitch_service;
+import '../services/sound_service.dart';
 import '../utils/svg.dart';
 import '../utils/polygon.dart' as pg;
 
@@ -644,6 +645,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     // Place / replace starter when close to the center
     if (isStarter && dist < 25) {
       notifier.setChart(chart.copyWith(starterStitchName: activeName));
+      ref.read(soundServiceProvider).play(SoundEffect.stitchPop);
       return;
     }
 
@@ -792,6 +794,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
 
     final connected = assignConnections(rounds);
     notifier.setChart(chart.copyWith(patternRounds: connected));
+    ref.read(soundServiceProvider).play(SoundEffect.stitchPop);
     setState(() {
       _selectedRoundIdx = null;
       _selectedStitchIdx = null;
@@ -801,6 +804,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
   }
 
   void _newRound() {
+    ref.read(soundServiceProvider).play(SoundEffect.addRound);
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     final rounds = List<PatternRound>.from(chart.patternRounds);
@@ -823,6 +827,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
   }
 
   void _adjustRoundRadius(int roundIdx, double delta) {
+    ref.read(soundServiceProvider).play(SoundEffect.click);
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     if (roundIdx < 0 || roundIdx >= chart.patternRounds.length) return;
@@ -837,6 +842,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
   }
 
   void _setRoundSides(int roundIdx, int? newSides) {
+    ref.read(soundServiceProvider).play(SoundEffect.click);
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     if (roundIdx < 0 || roundIdx >= chart.patternRounds.length) return;
@@ -849,6 +855,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
   }
 
   void _deleteLastRound() {
+    ref.read(soundServiceProvider).play(SoundEffect.delete);
     final notifier = ref.read(chartProvider.notifier);
     final chart = notifier.chart;
     if (chart.patternRounds.isEmpty) return;
@@ -978,6 +985,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
 
         final connected = assignConnections(rounds);
         notifier.setChart(chart.copyWith(patternRounds: connected), recordUndo: true);
+        ref.read(soundServiceProvider).play(SoundEffect.delete);
         setState(() {
           _hoverRoundIdx = null;
           _hoverStitchIdx = null;
@@ -1006,6 +1014,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     final chart = chartNotifier.chart;
     final result = stitch_service.deleteSelectedStitches(chart: chart, selectedKeys: selected);
     chartNotifier.setChart(result.updatedChart, recordUndo: true);
+    ref.read(soundServiceProvider).play(SoundEffect.delete);
     ref.read(editModeProvider.notifier).clearSelection();
     setState(() {
       _hoverRoundIdx = null;
@@ -1025,6 +1034,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     if (positioned == null) return;
     final hit = _findNearestStitch(content, svgSize, positioned, maxDist: 32.0);
     if (hit != null) {
+      ref.read(soundServiceProvider).play(SoundEffect.click);
       ref.read(editModeProvider.notifier).toggleStitchSelection(hit.$1, hit.$2);
     }
   }
@@ -1033,6 +1043,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
     if (positioned == null) return;
     final hit = _findNearestStitch(content, svgSize, positioned, maxDist: 32.0);
     if (hit != null) {
+      ref.read(soundServiceProvider).play(SoundEffect.click);
       final hitRi = hit.$1;
       final hitSi = hit.$2;
       final pStitch = positioned[hitRi][hitSi];
@@ -1919,6 +1930,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                           icon: const Icon(Icons.swap_horiz, size: 16),
                           label: Text(strings.replaceFromPalette, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                           onPressed: () {
+                            ref.read(soundServiceProvider).play(SoundEffect.click);
                             ref.read(editModeProvider.notifier).setMode(EditMode.replace);
                           },
                         ),
@@ -1941,6 +1953,7 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
                           constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                           padding: EdgeInsets.zero,
                           onPressed: () {
+                            ref.read(soundServiceProvider).play(SoundEffect.click);
                             ref.read(editModeProvider.notifier).clearSelection();
                           },
                         ),

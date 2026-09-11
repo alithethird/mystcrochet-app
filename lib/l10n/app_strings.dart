@@ -15,6 +15,9 @@ class AppStrings {
       'settings': 'Ayarlar',
       'language': 'Dil',
       'selectLanguage': 'Dil Seçin',
+      'soundEffects': 'Ses Efektleri',
+      'soundOn': 'Açık',
+      'soundOff': 'Kapalı',
       'newChart': 'Yeni Grafik',
       'openChart': 'Grafik Aç',
       'saveChart': 'Grafiği Kaydet',
@@ -123,6 +126,9 @@ class AppStrings {
       'settings': 'Settings',
       'language': 'Language',
       'selectLanguage': 'Select Language',
+      'soundEffects': 'Sound Effects',
+      'soundOn': 'On',
+      'soundOff': 'Off',
       'newChart': 'New Chart',
       'openChart': 'Open Chart',
       'saveChart': 'Save Chart',
@@ -231,6 +237,9 @@ class AppStrings {
       'settings': 'Einstellungen',
       'language': 'Sprache',
       'selectLanguage': 'Sprache wählen',
+      'soundEffects': 'Soundeffekte',
+      'soundOn': 'Ein',
+      'soundOff': 'Aus',
       'newChart': 'Neues Diagramm',
       'openChart': 'Diagramm öffnen',
       'saveChart': 'Diagramm speichern',
@@ -339,6 +348,9 @@ class AppStrings {
       'settings': 'Configuración',
       'language': 'Idioma',
       'selectLanguage': 'Seleccionar idioma',
+      'soundEffects': 'Efectos de sonido',
+      'soundOn': 'Activado',
+      'soundOff': 'Desactivado',
       'newChart': 'Nuevo gráfico',
       'openChart': 'Abrir gráfico',
       'saveChart': 'Guardar gráfico',
@@ -461,6 +473,9 @@ class AppStrings {
   String get settings => get('settings');
   String get language => get('language');
   String get selectLanguage => get('selectLanguage');
+  String get soundEffects => get('soundEffects');
+  String get soundOn => get('soundOn');
+  String get soundOff => get('soundOff');
   String get newChart => get('newChart');
   String get openChart => get('openChart');
   String get saveChart => get('saveChart');

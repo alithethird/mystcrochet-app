@@ -6,6 +6,7 @@ import '../providers/chart_provider.dart';
 import '../providers/edit_mode_provider.dart';
 import '../providers/stitch_provider.dart';
 import '../services/stitch_replace_service.dart';
+import '../services/sound_service.dart';
 import '../utils/svg.dart';
 
 class StitchPalette extends ConsumerStatefulWidget {
@@ -94,9 +95,12 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                       child: _CategoryChip(
                         label: strings.categoryName(cat),
                         selected: activeCategory == cat,
-                        onTap: () => ref
-                            .read(stitchStoreProvider.notifier)
-                            .setActiveCategory(cat),
+                        onTap: () {
+                          ref.read(soundServiceProvider).play(SoundEffect.click);
+                          ref
+                              .read(stitchStoreProvider.notifier)
+                              .setActiveCategory(cat);
+                        },
                       ),
                     )),
                 Padding(
@@ -104,9 +108,12 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                   child: _CategoryChip(
                     label: strings.all,
                     selected: activeCategory == null,
-                    onTap: () => ref
-                        .read(stitchStoreProvider.notifier)
-                        .setActiveCategory(null),
+                    onTap: () {
+                      ref.read(soundServiceProvider).play(SoundEffect.click);
+                      ref
+                          .read(stitchStoreProvider.notifier)
+                          .setActiveCategory(null);
+                    },
                   ),
                 ),
                 Container(
@@ -274,6 +281,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                       );
 
                       if (result.replacedCount > 0) {
+                        ref.read(soundServiceProvider).play(SoundEffect.click);
                         chartNotifier.setChart(result.updatedChart, recordUndo: true);
                         ref.read(editModeProvider.notifier).clearReplaceTarget();
                         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -292,6 +300,7 @@ class _StitchPaletteState extends ConsumerState<StitchPalette> {
                       return;
                     }
 
+                    ref.read(soundServiceProvider).play(SoundEffect.click);
                     ref
                         .read(stitchStoreProvider.notifier)
                         .setActiveStitchName(stitch.name);
