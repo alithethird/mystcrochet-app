@@ -139,5 +139,144 @@ void main() {
       final updatedScale = key.currentState?.transformationController.value.getMaxScaleOnAxis() ?? 1.0;
       expect(updatedScale > initialScale, isTrue);
     });
+
+    testWidgets('Mouse scroll in EditMode.stitch zooms in (scroll up) and zooms out (scroll down) without Ctrl',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final key = GlobalKey<VisualChartViewState>();
+      final container = ProviderContainer();
+      final chartNotifier = container.read(chartProvider.notifier);
+
+      chartNotifier.setChart(
+        Chart(
+          name: 'Scroll Zoom Chart',
+          starterStitchName: 'mr',
+          guidelines: Guidelines(type: GuidelinesType.visual),
+          patternRounds: [
+            PatternRound(
+              number: 1,
+              stitches: [
+                PatternStitch(kind: 'stitch', name: 'dc', count: 6),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      // Ensure mode is EditMode.stitch
+      container.read(editModeProvider.notifier).setMode(EditMode.stitch);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 800,
+                height: 800,
+                child: VisualChartView(key: key),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final initialScale = key.currentState?.transformationController.value.getMaxScaleOnAxis() ?? 1.0;
+
+      // Scroll up (negative dy) -> Zoom in
+      await tester.sendEventToBinding(
+        const PointerScrollEvent(
+          position: Offset(400, 400),
+          scrollDelta: Offset(0, -100),
+        ),
+      );
+      await tester.pump();
+
+      final zoomedInScale = key.currentState?.transformationController.value.getMaxScaleOnAxis() ?? 1.0;
+      expect(zoomedInScale, greaterThan(initialScale));
+
+      // Scroll down (positive dy) -> Zoom out
+      await tester.sendEventToBinding(
+        const PointerScrollEvent(
+          position: Offset(400, 400),
+          scrollDelta: Offset(0, 100),
+        ),
+      );
+      await tester.pump();
+
+      final zoomedOutScale = key.currentState?.transformationController.value.getMaxScaleOnAxis() ?? 1.0;
+      expect(zoomedOutScale, lessThan(zoomedInScale));
+    });
+
+    testWidgets('Mouse scroll in EditMode.pan translates (pans) the canvas instead of zooming',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final key = GlobalKey<VisualChartViewState>();
+      final container = ProviderContainer();
+      final chartNotifier = container.read(chartProvider.notifier);
+
+      chartNotifier.setChart(
+        Chart(
+          name: 'Scroll Pan Chart',
+          starterStitchName: 'mr',
+          guidelines: Guidelines(type: GuidelinesType.visual),
+          patternRounds: [
+            PatternRound(
+              number: 1,
+              stitches: [
+                PatternStitch(kind: 'stitch', name: 'dc', count: 6),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      // Set to EditMode.pan
+      container.read(editModeProvider.notifier).setMode(EditMode.pan);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 800,
+                height: 800,
+                child: VisualChartView(key: key),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final initialMatrix = key.currentState?.transformationController.value.clone() ?? Matrix4.identity();
+      final initialScale = initialMatrix.getMaxScaleOnAxis();
+
+      // Scroll down in Pan mode -> Translates view (pans), scale remains unchanged
+      await tester.sendEventToBinding(
+        const PointerScrollEvent(
+          position: Offset(400, 400),
+          scrollDelta: Offset(0, 100),
+        ),
+      );
+      await tester.pump();
+
+      final updatedMatrix = key.currentState?.transformationController.value ?? Matrix4.identity();
+      final updatedScale = updatedMatrix.getMaxScaleOnAxis();
+
+      expect(updatedScale, equals(initialScale));
+      expect(updatedMatrix.getTranslation().y, isNot(equals(initialMatrix.getTranslation().y)));
+    });
   });
 }
+

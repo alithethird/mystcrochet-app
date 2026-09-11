@@ -1590,7 +1590,10 @@ void _placeStitch(Offset localPos, double svgSize, List<List<_PosStitch>>? posit
           if (_dragPointer != null || _dragRoundIdx != null) return;
           if (event is PointerScrollEvent) {
             final scale = _transform.value.getMaxScaleOnAxis();
-            if (HardwareKeyboard.instance.isControlPressed || HardwareKeyboard.instance.isMetaPressed) {
+            final isCtrlOrMeta = HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed;
+            final isStitchMode = editState.mode == EditMode.stitch;
+            if ((isStitchMode || isCtrlOrMeta) && event.scrollDelta.dy != 0) {
               final zoomFactor = event.scrollDelta.dy < 0 ? 1.1 : 0.9;
               final newScale = (scale * zoomFactor).clamp(0.25, 6.0);
               final ratio = newScale / scale;
