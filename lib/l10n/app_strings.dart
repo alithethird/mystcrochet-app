@@ -121,6 +121,28 @@ class AppStrings {
       'tutorialSkip': 'Geç',
       'tutorialNext': 'İleri',
       'tutorialStart': 'Hemen Başla',
+      'login': 'Giriş Yap',
+      'register': 'Kayıt Ol',
+      'logout': 'Çıkış Yap',
+      'profile': 'Profil',
+      'account': 'Hesap',
+      'loginOrRegister': 'Giriş Yap / Kayıt Ol',
+      'username': 'Kullanıcı Adı',
+      'email': 'E-posta',
+      'password': 'Şifre',
+      'confirmPassword': 'Şifre Tekrar',
+      'serverUrl': 'Sunucu Adresi (Backend URL)',
+      'serverSettings': 'Sunucu Ayarı',
+      'loggedInAs': 'Olarak giriş yapıldı',
+      'passwordsDoNotMatch': 'Şifreler eşleşmiyor',
+      'passwordTooShort': 'Şifre en az 6 karakter olmalıdır',
+      'usernameRequired': 'Kullanıcı adı gereklidir',
+      'emailRequired': 'Geçerli bir e-posta adresi girin',
+      'loginSuccess': 'Giriş başarılı!',
+      'registerSuccess': 'Kayıt başarılı!',
+      'loggedOut': 'Çıkış yapıldı',
+      'alreadyHaveAccount': 'Zaten hesabınız var mı? Giriş yapın',
+      'dontHaveAccount': 'Hesabınız yok mu? Kayıt olun',
     },
     'en': {
       'settings': 'Settings',
@@ -232,6 +254,28 @@ class AppStrings {
       'tutorialSkip': 'Skip',
       'tutorialNext': 'Next',
       'tutorialStart': 'Get Started',
+      'login': 'Login',
+      'register': 'Register',
+      'logout': 'Logout',
+      'profile': 'Profile',
+      'account': 'Account',
+      'loginOrRegister': 'Login / Register',
+      'username': 'Username',
+      'email': 'Email',
+      'password': 'Password',
+      'confirmPassword': 'Confirm Password',
+      'serverUrl': 'Server URL (Backend URL)',
+      'serverSettings': 'Server Settings',
+      'loggedInAs': 'Logged in as',
+      'passwordsDoNotMatch': 'Passwords do not match',
+      'passwordTooShort': 'Password must be at least 6 characters',
+      'usernameRequired': 'Username is required',
+      'emailRequired': 'Enter a valid email address',
+      'loginSuccess': 'Login successful!',
+      'registerSuccess': 'Registration successful!',
+      'loggedOut': 'Logged out',
+      'alreadyHaveAccount': 'Already have an account? Log in',
+      'dontHaveAccount': 'Do not have an account? Register',
     },
     'de': {
       'settings': 'Einstellungen',
@@ -343,6 +387,28 @@ class AppStrings {
       'tutorialSkip': 'Überspringen',
       'tutorialNext': 'Weiter',
       'tutorialStart': 'Loslegen',
+      'login': 'Anmelden',
+      'register': 'Registrieren',
+      'logout': 'Abmelden',
+      'profile': 'Profil',
+      'account': 'Konto',
+      'loginOrRegister': 'Anmelden / Registrieren',
+      'username': 'Benutzername',
+      'email': 'E-Mail',
+      'password': 'Passwort',
+      'confirmPassword': 'Passwort bestätigen',
+      'serverUrl': 'Server-Adresse (Backend URL)',
+      'serverSettings': 'Server-Einstellungen',
+      'loggedInAs': 'Angemeldet als',
+      'passwordsDoNotMatch': 'Passwörter stimmen nicht überein',
+      'passwordTooShort': 'Passwort muss mindestens 6 Zeichen lang sein',
+      'usernameRequired': 'Benutzername ist erforderlich',
+      'emailRequired': 'Gültige E-Mail-Adresse erforderlich',
+      'loginSuccess': 'Erfolgreich angemeldet!',
+      'registerSuccess': 'Erfolgreich registriert!',
+      'loggedOut': 'Abgemeldet',
+      'alreadyHaveAccount': 'Bereits ein Konto? Anmelden',
+      'dontHaveAccount': 'Noch kein Konto? Registrieren',
     },
     'es': {
       'settings': 'Configuración',
@@ -454,6 +520,28 @@ class AppStrings {
       'tutorialSkip': 'Omitir',
       'tutorialNext': 'Siguiente',
       'tutorialStart': 'Empezar',
+      'login': 'Iniciar sesión',
+      'register': 'Registrarse',
+      'logout': 'Cerrar sesión',
+      'profile': 'Perfil',
+      'account': 'Cuenta',
+      'loginOrRegister': 'Iniciar sesión / Registrarse',
+      'username': 'Nombre de usuario',
+      'email': 'Correo electrónico',
+      'password': 'Contraseña',
+      'confirmPassword': 'Confirmar contraseña',
+      'serverUrl': 'Dirección del servidor (Backend URL)',
+      'serverSettings': 'Ajustes del servidor',
+      'loggedInAs': 'Conectado como',
+      'passwordsDoNotMatch': 'Las contraseñas no coinciden',
+      'passwordTooShort': 'La contraseña debe tener al menos 6 caracteres',
+      'usernameRequired': 'Se requiere nombre de usuario',
+      'emailRequired': 'Ingrese un correo electrónico válido',
+      'loginSuccess': '¡Inicio de sesión exitoso!',
+      'registerSuccess': '¡Registro exitoso!',
+      'loggedOut': 'Sesión cerrada',
+      'alreadyHaveAccount': '¿Ya tienes una cuenta? Iniciar sesión',
+      'dontHaveAccount': '¿No tienes una cuenta? Registrarse',
     },
   };
 
@@ -588,6 +676,30 @@ class AppStrings {
   String get tutorialSkip => get('tutorialSkip');
   String get tutorialNext => get('tutorialNext');
   String get tutorialStart => get('tutorialStart');
+
+  // Auth & Account
+  String get login => get('login');
+  String get register => get('register');
+  String get logout => get('logout');
+  String get profile => get('profile');
+  String get account => get('account');
+  String get loginOrRegister => get('loginOrRegister');
+  String get username => get('username');
+  String get email => get('email');
+  String get password => get('password');
+  String get confirmPassword => get('confirmPassword');
+  String get serverUrl => get('serverUrl');
+  String get serverSettings => get('serverSettings');
+  String get loggedInAs => get('loggedInAs');
+  String get passwordsDoNotMatch => get('passwordsDoNotMatch');
+  String get passwordTooShort => get('passwordTooShort');
+  String get usernameRequired => get('usernameRequired');
+  String get emailRequired => get('emailRequired');
+  String get loginSuccess => get('loginSuccess');
+  String get registerSuccess => get('registerSuccess');
+  String get loggedOut => get('loggedOut');
+  String get alreadyHaveAccount => get('alreadyHaveAccount');
+  String get dontHaveAccount => get('dontHaveAccount');
 
   static AppStrings of(String lang) => AppStrings(lang);
 }

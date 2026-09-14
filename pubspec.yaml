@@ -1,6 +1,6 @@
 name: crochet_charts
 description: A crochet chart editor for creating and visualizing crochet patterns
-version: 1.0.26+27
+version: 1.0.27+28
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -19,6 +19,7 @@ dependencies:
   package_info_plus: ^9.0.1
   share_plus: ^12.0.2
   audioplayers: ^6.1.0
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

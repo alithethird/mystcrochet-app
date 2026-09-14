@@ -7,6 +7,8 @@ import '../providers/edit_mode_provider.dart';
 import '../providers/locale_provider.dart';
 import '../services/stitch_replace_service.dart';
 import '../services/sound_service.dart';
+import '../providers/auth_provider.dart';
+import 'auth_dialog.dart';
 import 'toolbar.dart';
 
 class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
@@ -41,6 +43,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final chartState = ref.watch(chartProvider);
     final editState = ref.watch(editModeProvider);
     final strings = ref.watch(stringsProvider);
+    final authState = ref.watch(authProvider);
     final soundEnabled = ref.watch(soundEffectsEnabledProvider);
     final soundService = ref.read(soundServiceProvider);
     final currentLang = ref.watch(localeProvider);
@@ -159,6 +162,10 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                         case 'tutorial':
                           soundService.play(SoundEffect.click);
                           onTutorial?.call();
+                          break;
+                        case 'auth':
+                          soundService.play(SoundEffect.click);
+                          AuthDialog.show(context);
                           break;
                       }
                     },
@@ -311,6 +318,33 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                           ),
                         ),
                       ],
+                      const PopupMenuDivider(),
+                      PopupMenuItem(
+                        key: const ValueKey('mobile_toolbar_auth'),
+                        value: 'auth',
+                        child: Row(
+                          children: [
+                            Icon(
+                              authState.isAuthenticated ? Icons.account_circle : Icons.login,
+                              size: 18,
+                              color: authState.isAuthenticated ? const Color(0xFF7C3AED) : null,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                authState.isAuthenticated
+                                    ? (authState.user?.username ?? strings.profile)
+                                    : strings.loginOrRegister,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: authState.isAuthenticated ? FontWeight.w600 : FontWeight.normal,
+                                  color: authState.isAuthenticated ? const Color(0xFF7C3AED) : null,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ],
