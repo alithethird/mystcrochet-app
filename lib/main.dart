@@ -23,6 +23,7 @@ import 'services/local_design_service.dart';
 import 'widgets/build_version_badge.dart';
 import 'widgets/saved_designs_dialog.dart';
 import 'widgets/mobile_app_bar.dart';
+import 'widgets/realistic_yarn_3d_view.dart';
 import 'dialogs/welcome_tutorial_dialog.dart';
 
 void main() {
@@ -43,6 +44,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
   final GlobalKey<VisualChartViewState> _chartKey = GlobalKey<VisualChartViewState>();
   bool _leftOpen = false;
   bool _rightOpen = false;
+  bool _show3DRender = false;
 
   @override
   void initState() {
@@ -294,23 +296,32 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                 _handleOpen(innerContext),
             const SingleActivator(LogicalKeyboardKey.keyO, meta: true): () =>
                 _handleOpen(innerContext),
-            const SingleActivator(LogicalKeyboardKey.delete): () {
-              if (ref.read(editModeProvider).selectedStitchKeys.isNotEmpty) {
-                _chartKey.currentState?.deleteSelectedStitches();
-              } else {
-                _chartKey.currentState?.deleteSelectedStitch();
-              }
-            },
-            const SingleActivator(LogicalKeyboardKey.backspace): () {
-              if (ref.read(editModeProvider).selectedStitchKeys.isNotEmpty) {
-                _chartKey.currentState?.deleteSelectedStitches();
-              } else {
-                _chartKey.currentState?.deleteSelectedStitch();
-              }
-            },
           },
           child: Focus(
             autofocus: true,
+            onKeyEvent: (node, event) {
+              if (event is! KeyDownEvent) return KeyEventResult.ignored;
+              if (event.logicalKey == LogicalKeyboardKey.backspace ||
+                  event.logicalKey == LogicalKeyboardKey.delete) {
+                final primaryFocus = FocusManager.instance.primaryFocus;
+                if (primaryFocus != null &&
+                    primaryFocus.context != null &&
+                    (primaryFocus.context!.widget is EditableText ||
+                        primaryFocus.context!
+                                .findAncestorWidgetOfExactType<EditableText>() !=
+                            null)) {
+                  return KeyEventResult.ignored;
+                }
+
+                if (ref.read(editModeProvider).selectedStitchKeys.isNotEmpty) {
+                  _chartKey.currentState?.deleteSelectedStitches();
+                } else {
+                  _chartKey.currentState?.deleteSelectedStitch();
+                }
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
             child: Builder(
               builder: (scaffoldContext) {
                 final mediaQuery = MediaQuery.of(scaffoldContext);
@@ -360,6 +371,7 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                             onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
                             onOpenEndDrawer: () => _scaffoldKey.currentState?.openEndDrawer(),
                             onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
+                            on3DRender: () => setState(() => _show3DRender = !_show3DRender),
                           )
                         : null,
                     drawer: isMobile
@@ -410,6 +422,8 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                               ),
                               onExportPng: () => _handleExportPng(scaffoldContext),
                               onTutorial: () => WelcomeTutorialDialog.show(scaffoldContext),
+                              on3DRender: () => setState(() => _show3DRender = !_show3DRender),
+                              is3DRenderActive: _show3DRender,
                             ),
                           ),
                       Expanded(
@@ -506,6 +520,13 @@ class _CrochetChartsAppState extends ConsumerState<CrochetChartsApp> {
                                 ],
                               ),
                             ),
+                            if (_show3DRender)
+                              Expanded(
+                                child: RealisticYarn3DView(
+                                  chart: ref.watch(chartProvider).chart,
+                                  onClose: () => setState(() => _show3DRender = false),
+                                ),
+                              ),
                             if (!isMobile && _rightOpen)
                               SizedBox(
                                 width: 300,

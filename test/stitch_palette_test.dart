@@ -230,6 +230,70 @@ void main() {
     expect(find.text('single crochet'), findsOneWidget);
     expect(find.text('double crochet'), findsOneWidget);
   });
+
+  testWidgets('Deleting characters in search bar updates query and list correctly',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final notifier = StitchStoreNotifier();
+    notifier.setStitches([
+      StitchRecord(
+        name: 'single crochet',
+        description: 'Single crochet stitch',
+        category: ['Basic'],
+        wrongSide: '',
+        svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+      ),
+      StitchRecord(
+        name: 'double crochet',
+        description: 'Double crochet stitch',
+        category: ['Basic'],
+        wrongSide: '',
+        svgContent: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>',
+      ),
+    ]);
+
+    final container = ProviderContainer(
+      overrides: [
+        stitchStoreProvider.overrideWith((ref) => notifier),
+      ],
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: StitchPalette(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final searchInput = find.byType(TextField);
+    await tester.enterText(searchInput, 'single');
+    await tester.pump();
+
+    expect(find.text('single crochet'), findsOneWidget);
+    expect(find.text('double crochet'), findsNothing);
+
+    // Backspace / delete characters step by step
+    await tester.enterText(searchInput, 'singl');
+    await tester.pump();
+    expect(container.read(stitchStoreProvider).store.searchText, equals('singl'));
+
+    await tester.enterText(searchInput, '');
+    await tester.pump();
+    expect(container.read(stitchStoreProvider).store.searchText, equals(''));
+
+    // Both stitches should be visible again
+    expect(find.text('single crochet'), findsOneWidget);
+    expect(find.text('double crochet'), findsOneWidget);
+  });
 }
 
 

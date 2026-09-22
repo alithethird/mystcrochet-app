@@ -21,6 +21,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final VoidCallback onOpenDrawer;
   final VoidCallback? onOpenEndDrawer;
   final VoidCallback? onTutorial;
+  final VoidCallback? on3DRender;
 
   const MobileAppBar({
     super.key,
@@ -33,6 +34,7 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
     required this.onOpenDrawer,
     this.onOpenEndDrawer,
     this.onTutorial,
+    this.on3DRender,
   });
 
   @override
@@ -111,6 +113,18 @@ class MobileAppBar extends ConsumerWidget implements PreferredSizeWidget {
                       onPressed: () {
                         soundService.play(SoundEffect.click);
                         onOpenEndDrawer!();
+                      },
+                      constraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      padding: EdgeInsets.zero,
+                    ),
+                  if (on3DRender != null)
+                    IconButton(
+                      icon: const Icon(Icons.view_in_ar, size: 20),
+                      tooltip: strings.realistic3dRender,
+                      onPressed: () {
+                        soundService.play(SoundEffect.click);
+                        on3DRender!();
                       },
                       constraints:
                           const BoxConstraints(minWidth: 36, minHeight: 36),

@@ -18,6 +18,8 @@ class AppToolbar extends ConsumerWidget {
   final VoidCallback? onExportPng;
   final VoidCallback? onSavedDesigns;
   final VoidCallback? onTutorial;
+  final VoidCallback? on3DRender;
+  final bool is3DRenderActive;
 
   const AppToolbar({
     super.key,
@@ -28,6 +30,8 @@ class AppToolbar extends ConsumerWidget {
     this.onExportPng,
     this.onSavedDesigns,
     this.onTutorial,
+    this.on3DRender,
+    this.is3DRenderActive = false,
   });
 
   @override
@@ -162,6 +166,17 @@ class AppToolbar extends ConsumerWidget {
           onPressed: () {
             soundService.play(SoundEffect.success);
             onExportPng!();
+          },
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+      if (on3DRender != null)
+        IconButton(
+          key: const ValueKey('toolbar_3d_render'),
+          icon: Icon(Icons.view_in_ar, size: 20, color: is3DRenderActive ? const Color(0xFF0284C7) : null),
+          tooltip: strings.realistic3dRender,
+          onPressed: () {
+            soundService.play(SoundEffect.click);
+            on3DRender!();
           },
           constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
@@ -521,9 +536,13 @@ class _EditableChartTitleState extends ConsumerState<EditableChartTitle> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  displayName,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                Flexible(
+                  child: Text(
+                    displayName,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
                 ),
                 const SizedBox(width: 4),
                 Icon(

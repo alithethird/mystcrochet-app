@@ -24,6 +24,7 @@ class AppStrings {
       'savedDesigns': 'Kayıtlı Tasarımlar',
       'dataView': 'Veri Görünümü',
       'exportPng': 'PNG Olarak Dışa Aktar',
+      'realistic3dRender': '3D Realistik Render',
       'help': 'Kullanım Rehberi',
       'undo': 'Geri Al',
       'redo': 'Yinele',
@@ -157,6 +158,7 @@ class AppStrings {
       'savedDesigns': 'Saved Designs',
       'dataView': 'Data View',
       'exportPng': 'Export as PNG',
+      'realistic3dRender': '3D Realistic Render',
       'help': 'User Guide',
       'undo': 'Undo',
       'redo': 'Redo',
@@ -290,6 +292,7 @@ class AppStrings {
       'savedDesigns': 'Gespeicherte Designs',
       'dataView': 'Datenansicht',
       'exportPng': 'Als PNG exportieren',
+      'realistic3dRender': '3D Realistischer Render',
       'help': 'Benutzerhandbuch',
       'undo': 'Rückgängig',
       'redo': 'Wiederholen',
@@ -423,6 +426,7 @@ class AppStrings {
       'savedDesigns': 'Diseños guardados',
       'dataView': 'Vista de datos',
       'exportPng': 'Exportar como PNG',
+      'realistic3dRender': 'Render 3D Realista',
       'help': 'Guía de uso',
       'undo': 'Deshacer',
       'redo': 'Rehacer',
@@ -570,6 +574,7 @@ class AppStrings {
   String get savedDesigns => get('savedDesigns');
   String get dataView => get('dataView');
   String get exportPng => get('exportPng');
+  String get realistic3dRender => get('realistic3dRender');
   String get help => get('help');
   String get undo => get('undo');
   String get redo => get('redo');
