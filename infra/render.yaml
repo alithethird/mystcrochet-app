@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: mystcrochet-app
+    runtime: docker
+    plan: free
+    repo: https://github.com/alithethird/mystcrochet-app
+    branch: main
+    dockerfilePath: ./infra/Dockerfile.render
+    dockerContext: .
+    autoDeploy: true
