@@ -11,6 +11,11 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: PUBLIC_URL
+        fromService:
+          type: web
+          name: mystcrochet-backend
+          envVarKey: RENDER_EXTERNAL_URL
       - key: DB_PATH
         value: /tmp/mystcrochet.db
       - key: ALLOWED_ORIGINS
@@ -31,7 +36,10 @@ services:
     autoDeploy: true
     envVars:
       - key: SERVER_URL
-        value: https://mystcrochet-backend.onrender.com
+        fromService:
+          type: web
+          name: mystcrochet-backend
+          envVarKey: PUBLIC_URL
 
   - type: web
     name: mystcrochet-planner
