@@ -1,10 +1,41 @@
 services:
   - type: web
+    name: mystcrochet-backend
+    runtime: docker
+    plan: free
+    repo: https://github.com/alithethird/mystcrochet-backend
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DB_PATH
+        value: /tmp/mystcrochet.db
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_SECRET
+        generateValue: true
+
+  - type: web
     name: mystcrochet-app
     runtime: docker
     plan: free
     repo: https://github.com/alithethird/mystcrochet-app
     branch: main
     dockerfilePath: ./infra/Dockerfile.render
+    dockerContext: .
+    autoDeploy: true
+
+  - type: web
+    name: mystcrochet-planner
+    runtime: docker
+    plan: free
+    repo: https://github.com/alithethird/mystcrochet-planner
+    branch: main
+    dockerfilePath: ./Dockerfile.render
     dockerContext: .
     autoDeploy: true
