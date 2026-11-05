@@ -11,8 +11,10 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
-      - key: DB_PATH
-        value: /tmp/mystcrochet.db
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mystcrochet-db
+          property: connectionString
       - key: ALLOWED_ORIGINS
         value: "*"
       - key: JWT_SECRET
@@ -42,3 +44,10 @@ services:
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
     autoDeploy: true
+
+databases:
+  - name: mystcrochet-db
+    databaseName: mystcrochet
+    user: mystcrochet
+    plan: free
+    ipAllowList: []
