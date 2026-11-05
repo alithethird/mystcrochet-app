@@ -5,7 +5,11 @@ import '../services/auth_service.dart';
 
 const String _kAuthTokenKey = 'auth_token';
 const String _kAuthServerUrlKey = 'auth_server_url';
-const String _kDefaultServerUrl = 'http://localhost:8080';
+const String kDefaultServerUrl = String.fromEnvironment(
+  'SERVER_URL',
+  defaultValue: 'http://localhost:8080',
+);
+const String _kDefaultServerUrl = kDefaultServerUrl;
 
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();

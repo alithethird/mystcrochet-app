@@ -29,6 +29,9 @@ services:
     dockerfilePath: ./infra/Dockerfile.render
     dockerContext: .
     autoDeploy: true
+    envVars:
+      - key: SERVER_URL
+        value: https://mystcrochet-backend.onrender.com
 
   - type: web
     name: mystcrochet-planner

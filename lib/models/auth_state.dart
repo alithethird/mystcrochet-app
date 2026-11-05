@@ -12,7 +12,10 @@ class AuthState {
     this.token,
     this.isLoading = false,
     this.errorMessage,
-    this.serverUrl = 'http://localhost:8080',
+    this.serverUrl = const String.fromEnvironment(
+      'SERVER_URL',
+      defaultValue: 'http://localhost:8080',
+    ),
   });
 
   bool get isAuthenticated => token != null && token!.isNotEmpty && user != null;
